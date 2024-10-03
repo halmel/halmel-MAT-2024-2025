@@ -1,0 +1,49 @@
+1.1 Popis úkolu
+
+Cílem této maturitní práce je návrh a realizace e-shopu zaměřeného na prodej kuřat, vajec a chovatelských potřeb. Tento e-shop bude zahrnovat elektronické objednávání, kalendář pro zobrazení dostupnosti kuřat a správu skladových zásob a objednávek. Hlavním účelem tohoto projektu je přinést řešení, které nahradí zastaralé, manuální a časově náročné procesy, a zároveň přidá profesionální úroveň do podnikání. Díky tomu budou majitelé živnosti schopni efektivněji obsluhovat své zákazníky a zjednodušit provoz svého podnikání.
+
+Navržený systém bude zajišťovat všechny klíčové funkce e-shopu, včetně automatizace objednávek, správy dostupnosti produktů a informací o skladových zásobách. Projekt přináší jednoduchost a efektivitu tam, kde jsou aktuálně nedostatky v rychlosti a přehlednosti manuální správy objednávek a komunikace se zákazníky.
+1.2 Cíl maturitního projektu
+
+Hlavním cílem maturitního projektu je vytvořit plně funkční e-shop, který bude šitý na míru farmářům a malým chovatelům kuřat, kteří nejsou technologicky zdatní. E-shop umožní snadný přístup k nákupu kuřat, vajec a dalších chovatelských potřeb, přičemž zjednoduší proces objednávání jak pro zákazníky, tak pro majitele e-shopu. Systém nahradí ruční procesy a nabídne uživatelsky přívětivé rozhraní, které je snadno ovladatelné i pro méně zkušené uživatele.
+
+Cílem je také zvýšit efektivitu a profesionalitu chovu kuřat tím, že se automatizují základní operace, jako je zpracování objednávek a sledování skladových zásob. Zákazníci budou mít možnost snadno nahlédnout do kalendáře dostupnosti kuřat a předobjednávat si je na konkrétní termíny, což umožní majitelům podnikání lépe plánovat líhnutí a distribuci.
+1.3 Klient a Cílové skupiny
+
+Tento maturitní projekt je vytvářen konkrétně pro živnost mého otce, který provozuje malý chov kuřat. E-shop mu výrazně usnadní správu objednávek a umožní efektivnější komunikaci se zákazníky, což pomůže s růstem jeho podnikání.
+
+Cílovou skupinou projektu jsou především malí farmáři a chovatelé kuřat, kteří často nejsou technologicky zdatní a spoléhají na tradiční, manuální postupy. Tito uživatelé mají většinou omezené zkušenosti s moderními technologiemi, a proto musí být systém navržen tak, aby byl co nejjednodušší na používání. Cílem je nabídnout řešení, které výrazně usnadní jejich práci, automatizuje složité úkony a přinese jim úsporu času i energie. Systém bude snadno ovladatelný a přehledný, což farmářům umožní plně se soustředit na chov a podnikání.
+
+Pro zákazníky e-shopu bude nová platforma znamenat rychlejší a přehlednější způsob objednávání produktů. Nebudou muset řešit zdlouhavé telefonické či emailové objednávky, ale budou mít vše na jednom místě s možností výběru konkrétního data dostupnosti kuřat.
+1.4 Užití maturitního projektu
+
+Řešení bude poskytovat přehledné a intuitivní uživatelské rozhraní, které umožní snadnou navigaci mezi produkty a efektivní správu objednávek a skladových zásob. Pro vlastníka, mého otce, to znamená výrazné zjednodušení denních úkolů a zlepšení celkového řízení jeho podnikání. Systém přinese moderní a profesionální přístup k prodeji chovatelských potřeb a kuřat, což povede k rychlejšímu a efektivnějšímu zpracování objednávek.
+
+Další klíčovou vlastností systému bude podpora automatizované komunikace prostřednictvím emailů, které budou zákazníkům zasílat potvrzení o objednávkách a aktualizace o stavu jejich nákupu. Tím se výrazně zlepší komunikace mezi e-shopem a zákazníky, kteří budou vždy včas informováni o dostupnosti produktů. Automatizace těchto procesů nejen ušetří čas a energii vlastníkovi, ale také zlepší zákaznickou zkušenost a povede k vyšší spokojenosti.
+
+Výsledkem bude plně funkční e-shop, který splní potřeby specifické cílové skupiny, zefektivní prodejní procesy a automatizuje klíčové činnosti. Tento projekt přinese nové možnosti růstu a modernizace pro chovatele, kteří se nyní mohou soustředit na kvalitu své produkce, zatímco technická stránka jejich podnikání bude plně zajištěna e-shopem.
+
+
+2.1 Užití maturitního projektu
+
+V současné době je proces prodeje kuřat a chovatelských potřeb často veden ručně, prostřednictvím telefonických objednávek nebo emailové komunikace. Tento postup je zdlouhavý, náchylný k chybám a neposkytuje zákazníkům ani farmářům přehled o dostupnosti produktů nebo možnost snadno plánovat budoucí dodávky. Systém je náročný na čas a vyžaduje neustálou pozornost majitele, který musí spravovat skladové zásoby, objednávky a komunikaci se zákazníky. To výrazně zpomaluje celý proces a zvyšuje riziko nesprávné koordinace, například při neplánovaném nedostatku kuřat.
+
+Tento maturitní projekt se zaměřuje na vyřešení těchto problémů prostřednictvím automatizovaného e-shopu, který zjednoduší správu podnikání. Projekt bude mít praktický dopad nejen na vlastníka e-shopu, ale také na jeho zákazníky. Farmář bude moci snadno spravovat skladové zásoby, přijímat objednávky a plánovat líhnutí kuřat na základě předobjednávek. Na druhé straně zákazníci získají přístup k přehlednému rozhraní, které jim umožní rychle zjistit dostupnost produktů a zadat objednávku bez zbytečného zdržování.
+
+Automatizace, kterou tento projekt přináší, ulehčí každodenní práci farmářům, kteří nejsou technologicky zdatní, a umožní jim zaměřit se na samotný chov a obchodní strategii místo technických a administrativních problémů. Celkově tedy projekt přináší výraznou přidanou hodnotu ve formě časové úspory a zvýšení efektivity.
+2.2 Zdroje o dané problematice
+
+Při analýze stávajícího stavu a návrhu řešení pro e-shop jsem vycházel z několika zdrojů, které poskytují důležité informace o problematice elektronického obchodování, automatizace procesů a potřeb farmářů. Jedním z hlavních zdrojů byly již existující obecné e-shopy, které prodávají zvířata a chovatelské potřeby. Tyto platformy však většinou nejsou optimalizovány pro specifické potřeby chovatelů kuřat, postrádají například integraci kalendáře dostupnosti kuřat a pokročilou správu skladových zásob.
+
+Další důležité informace jsem čerpal z odborných článků o vývoji e-shopů a implementaci moderních technologií v zemědělství. Tyto studie a případové studie poskytují užitečný vhled do toho, jak farmáři mohou využít technologie ke zlepšení své efektivity a zjednodušení procesů. Zejména se zaměřují na to, jak technologická řešení pomáhají překonat omezené technologické dovednosti cílové skupiny, což je klíčový faktor pro úspěch tohoto projektu.
+
+Důležitým zdrojem inspirace byly i diskuse s farmáři a majiteli malých chovů, které poskytly hlubší vhled do toho, jaké problémy aktuálně řeší a jaká řešení by pro ně byla přínosná. Z jejich zkušeností vyplynulo, že hlavní výzvou je nedostatek času na administrativu, což je přesně to, co tento e-shop řeší.
+2.3 Zmapování přechozího stavu, čím se lze inspirovat, na co navázat
+
+Stávající e-shopy zaměřené na prodej kuřat a chovatelských potřeb, pokud vůbec existují, fungují spíše jako jednoduché katalogy produktů, které často neobsahují pokročilé funkce, jako je správa skladových zásob v reálném čase nebo automatizace procesů objednávání. Mnohé z těchto platforem také neumožňují farmářům snadno sledovat, kdy bude nový líh kuřat dostupný, což je velký problém při plánování produkce a uspokojení poptávky.
+
+Inspirovat se lze u pokročilejších e-commerce řešení používaných v jiných oblastech zemědělství, kde jsou využívány kalendáře dostupnosti, předobjednávky a automatizované systémy notifikací. Tyto koncepty lze aplikovat i na prodej kuřat a chovatelských potřeb, aby farmáři měli lepší přehled o svém skladu a mohli lépe plánovat výrobu a prodej.
+
+Dalším inspirativním prvkem jsou systémy pro správu vztahů se zákazníky (CRM), které automatizují komunikaci se zákazníky a usnadňují sledování jejich objednávek a preferencí. Integrace CRM prvků, jako je automatické ukládání kontaktů zákazníků a zasílání personalizovaných notifikací, do tohoto projektu přinese vyšší úroveň profesionality a zajistí lepší zákaznickou zkušenost.
+
+Tento projekt staví na základech stávajících řešení a inovuje je tak, aby poskytoval přehledný a snadno použitelný nástroj pro farmáře, kteří nejsou technologicky zdatní. Na co lze navázat, jsou tedy základní funkce e-commerce platforem, ovšem s důrazem na specifické potřeby farmářů, jako je kalendář dostupnosti a správa skladových zásob.
