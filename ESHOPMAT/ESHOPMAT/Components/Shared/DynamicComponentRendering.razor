@@ -1,0 +1,86 @@
+﻿@code {
+    [Parameter]
+    public PageContent Page { get; set; }
+
+    [Parameter]
+    public string WrapperStyle { get; set; }
+
+    private Type GetComponentType(string type)
+    {
+        return type switch
+        {
+            "Container" => typeof(ContainerComponent),
+            "Counter" => typeof(CounterComponent),
+            _ => null
+        };
+    }
+
+    private Dictionary<string, object> GetParameters()
+    {
+        var parameters = new Dictionary<string, object>();
+
+        if (Page.Type == "Container")
+        {
+            parameters[nameof(ContainerComponent.Name)] = Page.Name;
+            parameters[nameof(ContainerComponent.Data)] = Page.Data;
+            parameters[nameof(ContainerComponent.ChildContent)] = (RenderFragment)(builder =>
+            {
+                foreach (var child in Page.Children)
+                {
+                    var style = GetChildStyle(child.Name);
+                    builder.OpenComponent<DynamicComponentRendering>(0);
+                    builder.AddAttribute(1, "Page", child);
+                    builder.AddAttribute(2, "WrapperStyle", style); // Pass style for this child
+                    builder.CloseComponent();
+                }
+            });
+        }
+        else if (Page.Type == "Counter")
+        {
+            parameters[nameof(CounterComponent.Name)] = Page.Name;
+            parameters[nameof(CounterComponent.Data)] = Page.Data;
+        }
+
+        return parameters;
+    }
+
+    private string GetChildStyle(string childName)
+    {
+        if (Page.Data.TryGetValue($"{childName}:position", out var position))
+        {
+            var parts = position.Split(',');
+            if (parts.Length == 4 &&
+                int.TryParse(parts[0], out var row) &&
+                int.TryParse(parts[1], out var column) &&
+                int.TryParse(parts[2], out var rowSpan) &&
+                int.TryParse(parts[3], out var colSpan))
+            {
+                return $"grid-row: {row} / span {rowSpan}; grid-column: {column} / span {colSpan};";
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private string GetPositionStyle()
+    {
+        if (Page.Data.TryGetValue($"{Page.Name}:position", out var position))
+        {
+            var parts = position.Split(',');
+            if (parts.Length == 4 &&
+                int.TryParse(parts[0], out var row) &&
+                int.TryParse(parts[1], out var column) &&
+                int.TryParse(parts[2], out var rowSpan) &&
+                int.TryParse(parts[3], out var colSpan))
+            {
+                return $"grid-row: {row} / span {rowSpan}; grid-column: {column} / span {colSpan};";
+            }
+        }
+
+        return string.Empty;
+    }
+}
+
+<div style="@WrapperStyle; @GetPositionStyle()">
+    <DynamicComponent Type="GetComponentType(Page.Type)" Parameters="GetParameters()" />
+</div>

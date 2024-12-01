@@ -1,0 +1,30 @@
+﻿@code {
+    [Parameter]
+    public string Name { get; set; }
+
+    public int Rows
+    {
+        get => int.TryParse(Data.GetValueOrDefault(Name + ":rows").ToString(), out var value) ? value : 3;
+        set => Data[Name + "rows"] = value.ToString();
+    }
+    public int Columns
+    {
+        get => int.TryParse(Data.GetValueOrDefault(Name + ":columns").ToString(), out var value) ? value : 3;
+        set => Data[Name + "columns"] = value.ToString();
+    }
+
+    [Parameter]
+    public Dictionary<string, string> Data { get; set; }
+
+    [Parameter]
+    public RenderFragment ChildContent { get; set; }
+
+    private string GetGridStyle()
+    {
+        return $"display: grid; grid-template-rows: repeat({Rows}, 1fr); grid-template-columns: repeat({Columns}, 1fr); gap: 5px;";
+    }
+}
+
+<div style="@GetGridStyle()">
+    @ChildContent
+</div>

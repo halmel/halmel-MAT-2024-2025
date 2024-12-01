@@ -1,0 +1,25 @@
+﻿
+
+@code {
+    [Parameter]
+    public string Name { get; set; }
+
+    [Parameter]
+    public Dictionary<string, string> Data { get; set; }
+
+    private int Count
+    {
+        get => int.TryParse(Data.GetValueOrDefault(Name+":count"), out var value) ? value : 0;
+        set => Data[Name+":count"] = value.ToString();
+    }
+
+    private void Increment()
+    {
+        Count++;
+    }
+}
+
+<div>
+    <p>Counter (Name: @Name): @Count</p>
+    <button @onclick="Increment">Increment</button>
+</div>

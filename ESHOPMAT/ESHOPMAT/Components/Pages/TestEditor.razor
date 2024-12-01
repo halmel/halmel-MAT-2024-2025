@@ -1,0 +1,87 @@
+﻿@page "/page-editor"
+@code {
+    private PageContent Root;
+
+    protected override void OnInitialized()
+    {
+        PageSettings setRoot = new PageSettings()
+            {
+                Name = "Root",
+                Type = "Container",
+                RowCount= 4,
+                ColCount= 4
+
+            };
+        // Initialize Root container with position
+        Root = new PageContent(setRoot);
+
+
+        PageSettings setCounter1 = new PageSettings()
+            {
+                Name = "Counter1",
+                Type = "Counter",
+                Row = 1,
+                Col =1,
+                RowSpan = 1,
+                ColSpan = 1
+            };
+        // Add Counter1 to Root at position (1, 1)
+        Root.AddChildToParent(setCounter1, "Root");
+
+        PageSettings setCounter2 = new PageSettings()
+            {
+                Name = "Counter2",
+                Type = "Counter",
+                Row = 2,
+                Col = 2,
+                RowSpan = 1,
+                ColSpan = 1
+            };
+
+        Root.AddChildToParent(setCounter2, "Root");
+
+
+        PageSettings setNestedContainer = new PageSettings()
+            {
+                Name = "NestedContainer",
+                Type = "Container",
+                RowCount = 3,
+                ColCount = 3,
+                Row = 1,
+                Col = 3,
+                RowSpan = 2,
+                ColSpan = 2
+
+            };
+
+        Root.AddChildToParent(setNestedContainer, "Root");
+
+
+        PageSettings setNestedCounter1 = new PageSettings()
+            {
+                Name = "NestedCounter1",
+                Type = "Counter",
+                Row = 1,
+                Col = 1,
+                RowSpan = 1,
+                ColSpan = 1
+            };
+
+        Root.AddChildToParent(setNestedCounter1, "NestedContainer");
+
+        PageSettings setNestedCounter2 = new PageSettings()
+            {
+                Name = "NestedCounter2",
+                Type = "Counter",
+                Row = 2,
+                Col = 2,
+                RowSpan = 1,
+                ColSpan = 1
+            };
+
+        Root.AddChildToParent(setNestedCounter2, "NestedContainer");
+
+    }
+}
+
+<DynamicComponentRendering Page="Root" />

@@ -1,0 +1,81 @@
+﻿
+@page "/testPage"
+<h1>
+    AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+</h1>
+
+
+@code{
+
+}
+@code{
+
+}
+
+
+@* @code {
+    private PageContent Page;
+
+    protected override void OnInitialized()
+    {
+        Page = new PageContent
+            {
+                Content = builder =>
+                {
+                    builder.OpenElement(0, "div");
+                    builder.AddAttribute(1, "class", "root-content");
+                    builder.AddContent(2, "Dynamic Counter Example:");
+                    builder.CloseElement();
+                },
+                Children = new List<PageContent>
+            {
+                new PageContent
+                {
+                    State = new Dictionary<string, object>
+                    {
+                        { "CounterValue", 0 }, // Initial counter value
+                        { "Label", "Custom Counter Value:" } // Customizable label
+                    },
+                    Events = new Dictionary<string, EventCallback>
+                    {
+                        {
+                            "Increment", EventCallback.Factory.Create(this, () =>
+                            {
+                                var counterContent = Page.Children[0];
+                                if (counterContent.State.ContainsKey("CounterValue"))
+                                {
+                                    counterContent.State["CounterValue"] =
+                                        (int)counterContent.State["CounterValue"] + 1;
+                                }
+                                StateHasChanged(); // Trigger UI refresh
+                            })
+                        }
+                    },
+                    Content = builder =>
+                    {
+                        // Access State values
+                        var counterValue = Page.Children[0].State.ContainsKey("CounterValue")
+                            ? (int)Page.Children[0].State["CounterValue"]
+                            : 0;
+                        var label = Page.Children[0].State.ContainsKey("Label")
+                            ? (string)Page.Children[0].State["Label"]
+                            : "Counter Value:";
+
+                        // Render the label
+                        builder.OpenElement(0, "label");
+                        builder.AddAttribute(1, "class", "counter-label");
+                        builder.AddContent(2, $"{label} {counterValue}");
+                        builder.CloseElement();
+
+                        // Render the button
+                        builder.OpenElement(3, "button");
+                        builder.AddAttribute(4, "class", "counter-button");
+                        builder.AddAttribute(5, "onclick", Page.Children[0].Events["Increment"]);
+                        builder.AddContent(6, "Increment");
+                        builder.CloseElement();
+                    }
+                }
+            }
+            };
+    }
+} *@
