@@ -14,10 +14,6 @@ namespace ESHOPMAT.Models
         // Unique name for the component instance
         public string Name { get; set; }
 
-        public PageContent(Dictionary<string, string> sharedData = null)
-        {
-            Data = sharedData ?? new Dictionary<string, string>();
-        }
         public PageContent(PageSettings x)
         {
             Name = x.Name;
@@ -30,7 +26,14 @@ namespace ESHOPMAT.Models
 
         public void AddChild(PageSettings Set)
         {
-            PageContent child = new PageContent() { Name= Set.Name,Type = Set.Type, Data = this.Data };
+            PageSettings x = new PageSettings()
+            {
+                Name = Set.Name,
+                Type = Set.Type,
+                
+            };
+            PageContent child = new PageContent(x);
+            child.Data = this.Data;
             Data[child.Name + ":position"] = $"{Set.Row},{Set.Col},{Set.RowSpan},{Set.ColSpan}";
             SetPageParams(ref child, Set);
             Children.Add(child);
@@ -98,6 +101,7 @@ namespace ESHOPMAT.Models
             public int ColCount { get; set; }
 
             public int Count { get; set; } = 1;
+
 
         }
 }

@@ -10,6 +10,6 @@ namespace ESHOPMAT.Data
 {
     public class PageDbContext(DbContextOptions<PageDbContext> options) : DbContext(options)
     {
-        public DbSet<ESHOPMAT.Models.Page> Page { get; set; } = default!;
+        public DbSet<ESHOPMAT.Models.PageContent> Pages { get; set; } = default!;
     }
 }

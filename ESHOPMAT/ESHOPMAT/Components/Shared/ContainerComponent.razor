@@ -4,13 +4,14 @@
 
     public int Rows
     {
-        get => int.TryParse(Data.GetValueOrDefault(Name + ":rows").ToString(), out var value) ? value : 3;
-        set => Data[Name + "rows"] = value.ToString();
+        get => int.TryParse(Data.GetValueOrDefault(Name + ":rows"), out var value) ? value : 3;
+        set => Data[Name + ":rows"] = value.ToString();
     }
+
     public int Columns
     {
-        get => int.TryParse(Data.GetValueOrDefault(Name + ":columns").ToString(), out var value) ? value : 3;
-        set => Data[Name + "columns"] = value.ToString();
+        get => int.TryParse(Data.GetValueOrDefault(Name + ":columns"), out var value) ? value : 3;
+        set => Data[Name + ":columns"] = value.ToString();
     }
 
     [Parameter]
@@ -19,12 +20,69 @@
     [Parameter]
     public RenderFragment ChildContent { get; set; }
 
+    [Parameter]
+    public bool IsEditing { get; set; }
+
     private string GetGridStyle()
     {
         return $"display: grid; grid-template-rows: repeat({Rows}, 1fr); grid-template-columns: repeat({Columns}, 1fr); gap: 5px;";
     }
+
+    private void SelectElement(string componentName)
+    {
+        if (IsEditing)
+        {
+            Data["SelectedComponent"] = componentName;
+        }
+    }
 }
 
-<div style="@GetGridStyle()">
+<style>
+    .grid-container {
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        padding: 10px;
+        background-color: #ffffff;
+        position: relative;
+    }
+
+    .editable-element {
+        position: relative;
+    }
+
+        .editable-element:hover {
+            outline: 2px dashed #007bff; /* Blue dashed border when hovered */
+            cursor: pointer;
+        }
+
+    .selected-element {
+        outline: 2px solid #ff5722; /* Solid orange border for selected elements */
+    }
+
+    .resize-handle {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: #007bff;
+        border-radius: 50%;
+        bottom: 0;
+        right: 0;
+        cursor: nwse-resize;
+    }
+</style>
+
+<div class="grid-container" style="@GetGridStyle()">
+    @foreach (var item in Data.Where(d => d.Key.EndsWith(":rows") || d.Key.EndsWith(":columns")))
+    {
+        <div class="editable-element @(Data["SelectedComponent"] == item.Key ? "selected-element" : "")"
+             style="grid-row: span @(Data[item.Key.Replace(":rows", ":rowspan")]); grid-column: span @(Data[item.Key.Replace(":columns", ":colspan")]);"
+             @onclick="() => SelectElement(item.Key)">
+            @item.Key
+            @if (IsEditing)
+            {
+                <div class="resize-handle"></div>
+            }
+        </div>
+    }
     @ChildContent
 </div>

@@ -1,65 +1,79 @@
 ﻿@page "/page-editor"
-@code {
-    private PageContent Root;
+@inject ESHOPMAT.Data.PageDbContext DbContext
 
-    protected override void OnInitialized()
+@if (Pages.Count == 0)
+{
+    <p>No pages available. Please add a new page or edit the default page.</p>
+}
+else
+{
+    <DynamicComponentRendering Page="Root" />
+
+    <div style="margin-top: 20px;">
+        <button @onclick="SavePageContent">Save</button>
+        <button @onclick="LoadPreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
+        <button @onclick="LoadNextPage" disabled="@(!HasNextPage)">Next</button>
+    </div>
+}
+
+@code {
+    private List<ESHOPMAT.Models.PageSettings> Pages = new();
+    private int CurrentPageIndex = 0;
+
+    private ESHOPMAT.Models.PageContent Root { get; set; }
+
+    private bool HasPreviousPage => CurrentPageIndex > 0;
+    private bool HasNextPage => CurrentPageIndex < Pages.Count - 1;
+
+    protected override async Task OnInitializedAsync()
     {
-        PageSettings setRoot = new PageSettings()
+        // Load all pages from the database
+        Pages = await DbContext.Pages
+            .Select(p => new ESHOPMAT.Models.PageSettings
+                {
+                    Name = p.Name,
+                    Type = p.Type,
+                    RowCount = int.Parse(p.Data.GetValueOrDefault(p.Name + ":rows") ?? "1"),
+                    ColCount = int.Parse(p.Data.GetValueOrDefault(p.Name + ":columns") ?? "1"),
+                    Row = int.Parse(p.Data.GetValueOrDefault(p.Name + ":row") ?? "1"),
+                    Col = int.Parse(p.Data.GetValueOrDefault(p.Name + ":col") ?? "1"),
+                    RowSpan = int.Parse(p.Data.GetValueOrDefault(p.Name + ":rowspan") ?? "1"),
+                    ColSpan = int.Parse(p.Data.GetValueOrDefault(p.Name + ":colspan") ?? "1"),
+                    Count = int.Parse(p.Data.GetValueOrDefault(p.Name + ":count") ?? "1")
+                })
+            .ToListAsync();
+
+        // Initialize a default page if none exist
+        if (Pages.Count == 0)
+        {
+            InitializeDefaultPage();
+        }
+
+        LoadCurrentPage();
+    }
+
+    private void InitializeDefaultPage()
+    {
+        var defaultPage = new ESHOPMAT.Models.PageSettings
             {
                 Name = "Root",
                 Type = "Container",
-                RowCount= 4,
-                ColCount= 4
-
+                RowCount = 4,
+                ColCount = 4
             };
-        // Initialize Root container with position
-        Root = new PageContent(setRoot);
 
+        Pages.Add(defaultPage);
+    }
 
-        PageSettings setCounter1 = new PageSettings()
+    private void LoadCurrentPage()
+    {
+        var currentPageSettings = Pages[CurrentPageIndex];
+        Root = new ESHOPMAT.Models.PageContent(currentPageSettings);
+
+        // Add child components to the Root dynamically if needed
+        var counterSettings = new ESHOPMAT.Models.PageSettings
             {
                 Name = "Counter1",
-                Type = "Counter",
-                Row = 1,
-                Col =1,
-                RowSpan = 1,
-                ColSpan = 1
-            };
-        // Add Counter1 to Root at position (1, 1)
-        Root.AddChildToParent(setCounter1, "Root");
-
-        PageSettings setCounter2 = new PageSettings()
-            {
-                Name = "Counter2",
-                Type = "Counter",
-                Row = 2,
-                Col = 2,
-                RowSpan = 1,
-                ColSpan = 1
-            };
-
-        Root.AddChildToParent(setCounter2, "Root");
-
-
-        PageSettings setNestedContainer = new PageSettings()
-            {
-                Name = "NestedContainer",
-                Type = "Container",
-                RowCount = 3,
-                ColCount = 3,
-                Row = 1,
-                Col = 3,
-                RowSpan = 2,
-                ColSpan = 2
-
-            };
-
-        Root.AddChildToParent(setNestedContainer, "Root");
-
-
-        PageSettings setNestedCounter1 = new PageSettings()
-            {
-                Name = "NestedCounter1",
                 Type = "Counter",
                 Row = 1,
                 Col = 1,
@@ -67,21 +81,49 @@
                 ColSpan = 1
             };
 
-        Root.AddChildToParent(setNestedCounter1, "NestedContainer");
+        Root.AddChild(counterSettings);
+    }
 
-        PageSettings setNestedCounter2 = new PageSettings()
-            {
-                Name = "NestedCounter2",
-                Type = "Counter",
-                Row = 2,
-                Col = 2,
-                RowSpan = 1,
-                ColSpan = 1
-            };
+    private async Task SavePageContent()
+    {
+        if (Pages.Count == 0) return;
 
-        Root.AddChildToParent(setNestedCounter2, "NestedContainer");
+        var currentPageSettings = Pages[CurrentPageIndex];
 
+        // Check if the page exists in the database
+        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPageSettings.Name);
+
+        if (existingPage != null)
+        {
+            // Update the existing page
+            existingPage.Data = Root.Data; // Update with new data
+            DbContext.Pages.Update(existingPage);
+        }
+        else
+        {
+            // Create a new page
+            var newPage = new ESHOPMAT.Models.PageContent(currentPageSettings);
+            await DbContext.Pages.AddAsync(newPage);
+        }
+
+        await DbContext.SaveChangesAsync();
+    }
+
+    private void LoadPreviousPage()
+    {
+        if (HasPreviousPage)
+        {
+            CurrentPageIndex--;
+            LoadCurrentPage();
+        }
+    }
+
+    private void LoadNextPage()
+    {
+        if (HasNextPage)
+        {
+            CurrentPageIndex++;
+            LoadCurrentPage();
+        }
     }
 }
-
-<DynamicComponentRendering Page="Root" />

@@ -1,6 +1,4 @@
-﻿
-
-@code {
+﻿@code {
     [Parameter]
     public string Name { get; set; }
 
@@ -9,17 +7,64 @@
 
     private int Count
     {
-        get => int.TryParse(Data.GetValueOrDefault(Name+":count"), out var value) ? value : 0;
-        set => Data[Name+":count"] = value.ToString();
+        get => int.TryParse(Data.GetValueOrDefault(Name + ":count"), out var value) ? value : 0;
+        set => Data[Name + ":count"] = Math.Max(0, value).ToString(); // Prevent negative counts
     }
 
     private void Increment()
     {
         Count++;
     }
+
+    private void Decrement()
+    {
+        if (Count > 0) // Ensure count doesn't go below zero
+        {
+            Count--;
+        }
+    }
 }
 
-<div>
-    <p>Counter (Name: @Name): @Count</p>
-    <button @onclick="Increment">Increment</button>
+<style>
+    .counter-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #f0f0f0;
+        border-radius: 25px;
+        padding: 5px 15px;
+        width: 120px;
+    }
+
+    .counter-button {
+        background-color: #e0e0e0;
+        border: none;
+        color: #333;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        .counter-button:hover {
+            background-color: #d0d0d0;
+        }
+
+    .counter-value {
+        font-size: 16px;
+        font-weight: bold;
+        text-align: center;
+        width: 40px;
+    }
+</style>
+
+<div class="counter-container">
+    <button class="counter-button" @onclick="Decrement">-</button>
+    <div class="counter-value">@Count</div>
+    <button class="counter-button" @onclick="Increment">+</button>
 </div>
