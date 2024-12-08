@@ -1,15 +1,29 @@
-﻿
+﻿@inject ESHOPMAT.Models.PageDbContext DbContext
 @page "/testPage"
 <h1>
     AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 </h1>
+<button @onclick="DeletePage">DELETE</button>
 
 
 @code{
+    private List<ESHOPMAT.Models.PageContent> Pages = new();
+    protected override async Task OnInitializedAsync()
+    {
+        // Load all pages from the database
+        Pages = await DbContext.Pages.ToListAsync();
 
-}
-@code{
+        // Ensure there is at least one default page
+    }
+    private async Task DeletePage()
+    {
+        foreach (var item in Pages)
+        {
+            DbContext.Remove(item);
 
+        }
+        DbContext.SaveChanges();
+    }
 }
 
 

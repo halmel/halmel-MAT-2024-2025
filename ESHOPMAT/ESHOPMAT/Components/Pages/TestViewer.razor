@@ -1,0 +1,210 @@
+﻿@page "/page-viewer"
+@inject ESHOPMAT.Models.PageDbContext DbContext
+
+@if (Pages.Count == 0)
+{
+    <p>No pages available. Please add a new page or edit the default page.</p>
+}
+else
+{
+    <h3>Editing Page: @Root.Name</h3>
+
+    <h4>Main Component Data</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var dataItem in Root.Data)
+            {
+                <tr>
+                    <td>@dataItem.Key</td>
+                    <td>
+                        <input type="text" value="@dataItem.Value" @oninput="(e) => UpdateDataValue(Root, dataItem.Key, e.Value?.ToString())" />
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h4>Child Components</h4>
+    @if (Root.Children.Count > 0)
+    {
+        <ul>
+            @foreach (var child in Root.Children)
+            {
+                <li>
+                    <strong>@child.Name (@child.Type)</strong>
+                    <button @onclick="() => EditChild(child)">Edit</button>
+                    <button @onclick="() => DeleteChild(child)">Delete</button>
+                    @if (child.Children.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var grandchild in child.Children)
+                            {
+                                <li>@grandchild.Name (@grandchild.Type)</li>
+                            }
+                        </ul>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No child components.</p>
+    }
+
+    <button @onclick="AddChild">Add Child</button>
+
+    <div style="margin-top: 20px;">
+        <button @onclick="SavePageContent">Save</button>
+        <button @onclick="DeletePage">Delete</button>
+        <button @onclick="LoadPreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
+        <button @onclick="LoadNextPage" disabled="@(!HasNextPage)">Next</button>
+    </div>
+}
+
+@code {
+    private List<ESHOPMAT.Models.PageContent> Pages = new();
+
+    private int CurrentPageIndex = 0;
+
+    private ESHOPMAT.Models.PageContent Root => Pages.Count > 0 ? Pages[CurrentPageIndex] : CreateDefaultPage();
+
+    private bool HasPreviousPage => CurrentPageIndex > 0;
+    private bool HasNextPage => CurrentPageIndex < Pages.Count - 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Pages = await DbContext.Pages.Include(p => p.Children).ToListAsync();
+
+        if (Pages.Count == 0)
+        {
+            var defaultPage = CreateDefaultPage();
+            Pages.Add(defaultPage);
+            await DbContext.Pages.AddAsync(defaultPage);
+            await DbContext.SaveChangesAsync();
+        }
+    }
+
+    private ESHOPMAT.Models.PageContent CreateDefaultPage()
+    {
+
+
+        var defaultPage = new PageContent(new PageSettings
+            {
+                Name = "DefaultPage",
+                Type = "Container",
+                RowCount = 16,
+                ColCount = 16,
+            }, DbContext);
+
+        var nestedContainer = new PageSettings
+            {
+                Name = "NestedContainer",
+                Type = "Container",
+                RowCount = 2,
+                ColCount = 2,
+                Row = 2,
+                Col = 2,
+                RowSpan = 2,
+                ColSpan = 2
+            };
+
+        defaultPage.AddChild(nestedContainer);
+
+        return defaultPage;
+    }
+
+    private async Task SavePageContent()
+    {
+        if (Pages.Count == 0) return;
+
+        var currentPage = Pages[CurrentPageIndex];
+        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
+
+        if (existingPage != null)
+        {
+            DbContext.Entry(existingPage).State = EntityState.Detached; // Detach to avoid conflicts
+            DbContext.Pages.Update(currentPage);
+        }
+        else
+        {
+            await DbContext.Pages.AddAsync(currentPage);
+        }
+
+        await DbContext.SaveChangesAsync();
+    }
+
+    private async Task DeletePage()
+    {
+        if (Pages.Count == 0) return;
+
+        var currentPage = Pages[CurrentPageIndex];
+        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
+
+        if (existingPage != null)
+        {
+            DbContext.Pages.Remove(existingPage);
+            await DbContext.SaveChangesAsync();
+        }
+
+        Pages.RemoveAt(CurrentPageIndex);
+
+        if (CurrentPageIndex >= Pages.Count && Pages.Count > 0)
+        {
+            CurrentPageIndex = Pages.Count - 1;
+        }
+    }
+
+    private void LoadPreviousPage()
+    {
+        if (HasPreviousPage)
+        {
+            CurrentPageIndex--;
+        }
+    }
+
+    private void LoadNextPage()
+    {
+        if (HasNextPage)
+        {
+            CurrentPageIndex++;
+        }
+    }
+
+    private void UpdateDataValue(PageContent content, string key, string? value)
+    {
+        if (content.Data.ContainsKey(key))
+        {
+            content.Data[key] = value ?? string.Empty;
+        }
+    }
+
+    private void AddChild()
+    {
+        var newChild = new PageSettings
+            {
+                Name = "NewChild",
+                Type = "Container",
+                RowCount = 1,
+                ColCount = 1
+            };
+
+        Root.AddChild(newChild);
+    }
+
+    private void EditChild(PageContent child)
+    {
+        // Logic for editing a child component
+    }
+
+    private void DeleteChild(PageContent child)
+    {
+        Root.Children.Remove(child);
+    }
+}

@@ -1,52 +1,391 @@
-﻿@code {
+﻿@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<div @ref="wrapperRef"
+     class="@(IsEditing && !IsRoot ? "editable-wrapper" : "")"
+     style="@WrapperStyle; @GetPositionStyle()"
+     @onclick:stopPropagation="true"
+     @onclick="HandleWrapperClick">
+    @if (IsEditing && !IsRoot)
+    {
+        <div class="move-handle" @onmousedown:preventDefault @onmousedown="StartMove"></div>
+
+        <div class="resize-handle top-left" @onmousedown:preventDefault @onmousedown="(e) => StartResize(e, ResizeDirection.TopLeft)"></div>
+        <div class="resize-handle top-right" @onmousedown:preventDefault @onmousedown="(e) => StartResize(e, ResizeDirection.TopRight)"></div>
+        <div class="resize-handle bottom-left" @onmousedown:preventDefault @onmousedown="(e) => StartResize(e, ResizeDirection.BottomLeft)"></div>
+        <div class="resize-handle bottom-right" @onmousedown:preventDefault @onmousedown="(e) => StartResize(e, ResizeDirection.BottomRight)"></div>
+    }
+
+    <DynamicComponent Type="GetComponentType(Page.Type)" Parameters="GetParameters()" />
+</div>
+
+<style>
+    .editable-wrapper {
+        position: relative;
+        border: 2px dashed #ccc;
+        min-height: 50px;
+        min-width: 50px;
+        user-select: none;
+    }
+
+    .move-handle {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 20px;
+        background-color: rgba(0,0,0,0.1);
+        cursor: move;
+        z-index: 10;
+    }
+
+    .resize-handle {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: blue;
+        z-index: 10;
+    }
+
+    .top-left {
+        top: -5px;
+        left: -5px;
+        cursor: nwse-resize;
+    }
+
+    .top-right {
+        top: -5px;
+        right: -5px;
+        cursor: nesw-resize;
+    }
+
+    .bottom-left {
+        bottom: -5px;
+        left: -5px;
+        cursor: nesw-resize;
+    }
+
+    .bottom-right {
+        bottom: -5px;
+        right: -5px;
+        cursor: nwse-resize;
+    }
+
+    .editable-wrapper {
+        transition: all 0.1s ease-in-out;
+    }
+
+</style>
+@code {
     [Parameter]
     public PageContent Page { get; set; }
 
     [Parameter]
     public string WrapperStyle { get; set; }
 
-    private Type GetComponentType(string type)
+    [Parameter]
+    public bool IsEditing { get; set; } = false;
+
+    [Parameter]
+    public bool IsRoot { get; set; } = true;
+
+    [Parameter]
+    public EventCallback<PageContent> OnPageUpdate { get; set; }
+
+    private ElementReference wrapperRef;
+    private bool isResizing = false;
+    private bool isMoving = false;
+    private int originalMouseX;
+    private int originalMouseY;
+    private int originalRow;
+    private int originalColumn;
+    private int originalRowSpan;
+    private int originalColSpan;
+    private ResizeDirection currentResizeDirection;
+    private IJSObjectReference module;
+
+    // Constants for grid and resize configuration
+    private const int GridCellSize = 30;
+    private const int MinimumSize = 1;
+
+    private enum ResizeDirection
     {
-        return type switch
-        {
-            "Container" => typeof(ContainerComponent),
-            "Counter" => typeof(CounterComponent),
-            _ => null
-        };
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight
     }
 
-    private Dictionary<string, object> GetParameters()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var parameters = new Dictionary<string, object>();
-
-        if (Page.Type == "Container")
+        if (firstRender)
         {
-            parameters[nameof(ContainerComponent.Name)] = Page.Name;
-            parameters[nameof(ContainerComponent.Data)] = Page.Data;
-            parameters[nameof(ContainerComponent.ChildContent)] = (RenderFragment)(builder =>
+            try
             {
-                foreach (var child in Page.Children)
-                {
-                    var style = GetChildStyle(child.Name);
-                    builder.OpenComponent<DynamicComponentRendering>(0);
-                    builder.AddAttribute(1, "Page", child);
-                    builder.AddAttribute(2, "WrapperStyle", style); // Pass style for this child
-                    builder.CloseComponent();
-                }
-            });
+                module = await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/resizeInterop.js");
+                await module.InvokeVoidAsync("initializeResizeHandlers", DotNetObjectReference.Create(this));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Module import failed: {ex.Message}");
+            }
         }
-        else if (Page.Type == "Counter")
-        {
-            parameters[nameof(CounterComponent.Name)] = Page.Name;
-            parameters[nameof(CounterComponent.Data)] = Page.Data;
-        }
-
-        return parameters;
     }
 
-    private string GetChildStyle(string childName)
+    private async Task StartMove(MouseEventArgs e)
     {
-        if (Page.Data.TryGetValue($"{childName}:position", out var position))
+        if (!IsEditing || IsRoot) return;
+
+        try
+        {
+            isMoving = true;
+            originalMouseX = (int)e.ClientX;
+            originalMouseY = (int)e.ClientY;
+
+            // Parse current position
+            var currentPosition = GetCurrentPosition();
+            originalRow = currentPosition.Row;
+            originalColumn = currentPosition.Column;
+            originalRowSpan = currentPosition.RowSpan;
+            originalColSpan = currentPosition.ColSpan;
+
+            // Attach global mouse move and up event listeners
+            await module.InvokeVoidAsync("attachResizeListeners",
+                DotNetObjectReference.Create(this),
+                new { clientX = originalMouseX, clientY = originalMouseY, isMoving = true });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in StartMove: {ex.Message}");
+            isMoving = false;
+        }
+    }
+
+    private async Task StartResize(MouseEventArgs e, ResizeDirection direction)
+    {
+        if (!IsEditing || IsRoot) return;
+
+        try
+        {
+            isResizing = true;
+            currentResizeDirection = direction;
+            originalMouseX = (int)e.ClientX;
+            originalMouseY = (int)e.ClientY;
+
+            // Parse current position
+            var currentPosition = GetCurrentPosition();
+            originalRow = currentPosition.Row;
+            originalColumn = currentPosition.Column;
+            originalRowSpan = currentPosition.RowSpan;
+            originalColSpan = currentPosition.ColSpan;
+
+            // Attach global mouse move and up event listeners
+            await module.InvokeVoidAsync("attachResizeListeners",
+                DotNetObjectReference.Create(this),
+                new { clientX = originalMouseX, clientY = originalMouseY, isMoving = false });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in StartResize: {ex.Message}");
+            isResizing = false;
+        }
+    }
+
+    [JSInvokable]
+    public async Task HandleMouseMove(int clientX, int clientY)
+    {
+        if (!isResizing && !isMoving) return;
+
+        int deltaX = clientX - originalMouseX;
+        int deltaY = clientY - originalMouseY;
+
+        // Determine whether to move or resize
+        var newPosition = isMoving
+            ? CalculateMovePosition(deltaX, deltaY)
+            : CalculateNewPosition(deltaX, deltaY);
+
+        // Update Page.Data with new position
+        UpdatePagePosition(newPosition);
+
+        // Trigger UI update for live feedback
+        StateHasChanged();
+
+        // Optionally invoke parent update callback if required
+        await OnPageUpdate.InvokeAsync(Page);
+    }
+
+
+    private (int Row, int Column, int RowSpan, int ColSpan) CalculateMovePosition(int deltaX, int deltaY)
+    {
+        int newRow = originalRow + (deltaY / GridCellSize);
+        int newColumn = originalColumn + (deltaX / GridCellSize);
+
+        return (newRow, newColumn, originalRowSpan, originalColSpan);
+    }
+
+    [JSInvokable]
+    public async Task HandleMouseUp()
+    {
+        if (!isResizing && !isMoving) return;
+
+        isResizing = false;
+        isMoving = false;
+
+        try
+        {
+            await module.InvokeVoidAsync("removeResizeListeners");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in HandleMouseUp: {ex.Message}");
+        }
+    }
+    
+
+
+    private async Task StartInteraction(MouseEventArgs e)
+    {
+        if (!IsEditing || IsRoot) return;
+
+        // Check if clicked on resize handles
+        if (IsOnResizeHandle(e)) return;
+
+        // Start moving
+        isMoving = true;
+        originalMouseX = (int)e.ClientX;
+        originalMouseY = (int)e.ClientY;
+
+        // Parse current position
+        var currentPosition = GetCurrentPosition();
+        originalRow = currentPosition.Row;
+        originalColumn = currentPosition.Column;
+
+        // Attach global mouse move and up event listeners
+        try 
+        {
+            await module.InvokeVoidAsync("attachMoveListeners", 
+                DotNetObjectReference.Create(this),
+                new { clientX = originalMouseX, clientY = originalMouseY });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting move: {ex.Message}");
+            isMoving = false;
+        }
+    }
+
+    private bool IsOnResizeHandle(MouseEventArgs e)
+    {
+        // This would need to be implemented with more precise hit detection
+        // For now, we'll return false to allow moving by default
+        return false;
+    }
+
+    private async Task HandleWrapperClick()
+    {
+        if (IsEditing && !IsRoot)
+        {
+            await (module?.InvokeVoidAsync("focus", wrapperRef) 
+                ?? JSRuntime.InvokeVoidAsync("window.resizeInterop.focus", wrapperRef));
+        }
+    }
+
+    private (int Row, int Column, int RowSpan, int ColSpan) CalculateNewMovement(int deltaX, int deltaY)
+    {
+        // Calculate grid cell movement
+        int rowChange = deltaY / GridCellSize;
+        int colChange = deltaX / GridCellSize;
+
+        return (
+            originalRow + rowChange, 
+            originalColumn + colChange, 
+            originalRowSpan, 
+            originalColSpan
+        );
+    }
+
+    private (int Row, int Column, int RowSpan, int ColSpan) CalculateNewPosition(int deltaX, int deltaY)
+    {
+        int newRow = originalRow;
+        int newColumn = originalColumn;
+        int newRowSpan = originalRowSpan;
+        int newColSpan = originalColSpan;
+
+        // Adjust based on resize direction
+        switch (currentResizeDirection)
+        {
+            case ResizeDirection.TopLeft:
+                newRow += deltaY / GridCellSize;
+                newRowSpan -= deltaY / GridCellSize;
+                newColumn += deltaX / GridCellSize;
+                newColSpan -= deltaX / GridCellSize;
+                break;
+            case ResizeDirection.TopRight:
+                newRow += deltaY / GridCellSize;
+                newRowSpan -= deltaY / GridCellSize;
+                newColSpan += deltaX / GridCellSize;
+                break;
+            case ResizeDirection.BottomLeft:
+                newRowSpan += deltaY / GridCellSize;
+                newColumn += deltaX / GridCellSize;
+                newColSpan -= deltaX / GridCellSize;
+                break;
+            case ResizeDirection.BottomRight:
+                newRowSpan += deltaY / GridCellSize;
+                newColSpan += deltaX / GridCellSize;
+                break;
+        }
+
+        // Ensure minimum sizes
+        newRowSpan = Math.Max(MinimumSize, newRowSpan);
+        newColSpan = Math.Max(MinimumSize, newColSpan);
+
+        return (newRow, newColumn, newRowSpan, newColSpan);
+    }
+
+    private string BuildResizeInteropScript()
+    {
+        return @"
+            if (!window.resizeInterop) {
+                window.resizeInterop = {
+                    dotNetHelper: null,
+                    startPosition: null,
+                    initializeResizeHandlers: function(dotNetHelper) {
+                        this.dotNetHelper = dotNetHelper;
+                    },
+                    attachResizeListeners: function(dotNetHelper, startPosition) {
+                        this.dotNetHelper = dotNetHelper;
+                        this.startPosition = startPosition;
+                        document.addEventListener('mousemove', this.handleMouseMove.bind(this));
+                        document.addEventListener('mouseup', this.handleMouseUp.bind(this));
+                    },
+                    handleMouseMove: function(e) {
+                        if (this.dotNetHelper) {
+                            this.dotNetHelper.invokeMethodAsync('HandleMouseMove', e.clientX, e.clientY);
+                        }
+                    },
+                    handleMouseUp: function() {
+                        if (this.dotNetHelper) {
+                            this.dotNetHelper.invokeMethodAsync('HandleMouseUp');
+                            this.dotNetHelper = null;
+                        }
+                    },
+                    removeResizeListeners: function() {
+                        document.removeEventListener('mousemove', this.handleMouseMove);
+                        document.removeEventListener('mouseup', this.handleMouseUp);
+                    },
+                    focus: function(element) {
+                        if (element) element.focus();
+                    }
+                };
+            }";
+    }
+
+
+    private (int Row, int Column, int RowSpan, int ColSpan) GetCurrentPosition()
+    {
+        if (Page.Data.TryGetValue($"{Page.Name}:position", out var position))
         {
             var parts = position.Split(',');
             if (parts.Length == 4 &&
@@ -55,11 +394,59 @@
                 int.TryParse(parts[2], out var rowSpan) &&
                 int.TryParse(parts[3], out var colSpan))
             {
-                return $"grid-row: {row} / span {rowSpan}; grid-column: {column} / span {colSpan};";
+                return (row, column, rowSpan, colSpan);
             }
         }
+        return (1, 1, 1, 1); // Default position
+    }
 
-        return string.Empty;
+    private void UpdatePagePosition((int Row, int Column, int RowSpan, int ColSpan) position)
+    {
+        Page.Data[$"{Page.Name}:position"] =
+            $"{position.Row},{position.Column},{position.RowSpan},{position.ColSpan}";
+
+        // Update the inline style for live feedback
+        WrapperStyle = $"grid-row: {position.Row} / span {position.RowSpan}; grid-column: {position.Column} / span {position.ColSpan};";
+    }
+
+
+    // Methods for dynamic component rendering
+    private Type GetComponentType(string type)
+    {
+        return type switch
+        {
+            "Container" => typeof(ContainerComponent),
+            "Counter" => typeof(CounterComponent),
+            "TextBlock" => typeof(TextBlockComponent),
+            "Image" => typeof(ImageComponent),
+            _ => null
+        };
+    }
+
+    private Dictionary<string, object> GetParameters()
+    {
+        var parameters = new Dictionary<string, object>();
+        if (Page.Type == "Container")
+        {
+            parameters[nameof(ContainerComponent.Page)] = Page;
+            parameters[nameof(ContainerComponent.IsEditing)] = IsEditing;
+        }
+        else if (Page.Type == "Counter")
+        {
+            parameters[nameof(CounterComponent.Page)] = Page;
+            parameters[nameof(CounterComponent.IsEditing)] = IsEditing;
+        }
+        else if (Page.Type == "TextBlock")
+        {
+            parameters[nameof(TextBlockComponent.Page)] = Page;
+            parameters[nameof(TextBlockComponent.IsEditing)] = IsEditing;
+        }
+        else if (Page.Type == "Image")
+        {
+            parameters[nameof(ImageComponent.Page)] = Page;
+            parameters[nameof(ImageComponent.IsEditing)] = IsEditing;
+        }
+        return parameters;
     }
 
     private string GetPositionStyle()
@@ -76,11 +463,14 @@
                 return $"grid-row: {row} / span {rowSpan}; grid-column: {column} / span {colSpan};";
             }
         }
-
         return string.Empty;
     }
-}
 
-<div style="@WrapperStyle; @GetPositionStyle()">
-    <DynamicComponent Type="GetComponentType(Page.Type)" Parameters="GetParameters()" />
-</div>
+    public async ValueTask DisposeAsync()
+    {
+        if (module is not null)
+        {
+            await module.DisposeAsync();
+        }
+    }
+}

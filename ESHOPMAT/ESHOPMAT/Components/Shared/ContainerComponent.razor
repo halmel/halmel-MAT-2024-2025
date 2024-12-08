@@ -1,6 +1,12 @@
 ﻿@code {
     [Parameter]
+    public PageContent Page { get; set; }
+
+    [Parameter]
+    public bool IsEditing { get; set; }
+
     public string Name { get; set; }
+    public Dictionary<string, string> Data { get; set; }
 
     public int Rows
     {
@@ -14,27 +20,21 @@
         set => Data[Name + ":columns"] = value.ToString();
     }
 
-    [Parameter]
-    public Dictionary<string, string> Data { get; set; }
 
-    [Parameter]
-    public RenderFragment ChildContent { get; set; }
 
-    [Parameter]
-    public bool IsEditing { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        Name = Page.Name;
+        Data = Page.Data;
+    }
+
+
 
     private string GetGridStyle()
     {
         return $"display: grid; grid-template-rows: repeat({Rows}, 1fr); grid-template-columns: repeat({Columns}, 1fr); gap: 5px;";
     }
 
-    private void SelectElement(string componentName)
-    {
-        if (IsEditing)
-        {
-            Data["SelectedComponent"] = componentName;
-        }
-    }
 }
 
 <style>
@@ -46,43 +46,14 @@
         position: relative;
     }
 
-    .editable-element {
-        position: relative;
-    }
-
-        .editable-element:hover {
-            outline: 2px dashed #007bff; /* Blue dashed border when hovered */
-            cursor: pointer;
-        }
-
-    .selected-element {
-        outline: 2px solid #ff5722; /* Solid orange border for selected elements */
-    }
-
-    .resize-handle {
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        background-color: #007bff;
-        border-radius: 50%;
-        bottom: 0;
-        right: 0;
-        cursor: nwse-resize;
-    }
 </style>
 
 <div class="grid-container" style="@GetGridStyle()">
-    @foreach (var item in Data.Where(d => d.Key.EndsWith(":rows") || d.Key.EndsWith(":columns")))
+    @foreach (var item in Page.Children)
     {
-        <div class="editable-element @(Data["SelectedComponent"] == item.Key ? "selected-element" : "")"
-             style="grid-row: span @(Data[item.Key.Replace(":rows", ":rowspan")]); grid-column: span @(Data[item.Key.Replace(":columns", ":colspan")]);"
-             @onclick="() => SelectElement(item.Key)">
-            @item.Key
-            @if (IsEditing)
-            {
-                <div class="resize-handle"></div>
-            }
-        </div>
+        <DynamicComponentRendering Page="item" IsEditing=IsEditing IsRoot=false/>
     }
-    @ChildContent
 </div>
+
+
+

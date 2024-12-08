@@ -1,0 +1,53 @@
+﻿<!-- Title Component -->
+<div>
+    @if (IsEditing)
+    {
+        <input @bind="Title" placeholder="Enter title" />
+    }
+    else
+    {
+        <h1>@Title</h1>
+    }
+</div>
+
+<!-- TextContent Component -->
+<div>
+    @if (IsEditing)
+    {
+        <textarea @bind="TextContent" placeholder="Enter content"></textarea>
+    }
+    else
+    {
+        <p>@TextContent</p>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public PageContent Page { get; set; }
+
+    [Parameter]
+    public bool IsEditing { get; set; }
+
+    public string Name { get; set; }
+
+    public Dictionary<string, string> Data { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Name = Page.Name;
+        Data = Page.Data;
+    }
+
+    private string Title
+    {
+        get => Data.GetValueOrDefault(Name + ":title") ?? "Untitled";
+        set => Data[Name + ":title"] = value;
+    }
+
+    private string TextContent
+    {
+        get => Data.GetValueOrDefault(Name + ":text") ?? "";
+        set => Data[Name + ":text"] = value;
+    }
+}

@@ -1,6 +1,6 @@
 ﻿namespace ESHOPMAT.Models
 {
-    public class Page
+    public class Pageaaa
     {
         public int Id { get; set; }
         public string Name { get; set; }

@@ -1,5 +1,7 @@
 ﻿@page "/page-editor"
-@inject ESHOPMAT.Data.PageDbContext DbContext
+@inject ESHOPMAT.Models.PageDbContext DbContext
+@inject ESHOPMAT.Models.PageDbContext DbContext2
+@inject NavigationManager Navigation
 
 @if (Pages.Count == 0)
 {
@@ -7,106 +9,180 @@
 }
 else
 {
-    <DynamicComponentRendering Page="Root" />
+    <h3>Editing Page: @Root.Name</h3>
+    <DynamicComponentRendering Page="Root" IsEditing="true"></DynamicComponentRendering>
+
+    <h4>Main Component Data</h4>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Key</th>
+                <th>Value</th>
+                <th>Actions</th> <!-- New column for the delete button -->
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var dataItem in Root.Data.ToList())
+            {
+                <tr>
+                    <td>@dataItem.Key</td>
+                    <td>
+                        <input type="text" value="@dataItem.Value" @oninput="(e) => UpdateDataValue(Root, dataItem.Key, e.Value?.ToString())" />
+                    </td>
+                    <td>
+                        <button @onclick="() => DeleteDataEntry(dataItem.Key)">Delete</button> <!-- Delete button -->
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <h4>Child Components</h4>
+    @if (Root.Children.Count > 0)
+    {
+        <ul>
+            @foreach (var child in Root.Children)
+            {
+                <li>
+                    <strong>@child.Name (@child.Type)</strong>
+                    <button @onclick="() => EditChild(child)">Edit</button>
+                    <button @onclick="() => DeleteChild(child)">Delete</button>
+                    @if (child.Children.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var grandchild in child.Children)
+                            {
+                                <li>@grandchild.Name (@grandchild.Type)</li>
+                            }
+                        </ul>
+                    }
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p>No child components.</p>
+    }
+
+    <!-- Button to open the Add Child modal -->
+    <button class="btn btn-primary" @onclick="ShowAddChildModal">Add Child</button>
+
+    <!-- Modal component to add a new child component -->
+    <AddChildModal IsVisible="IsAddingChild" OnClose="HandleCloseAddModal" OnAdd="HandleAddChild" />
 
     <div style="margin-top: 20px;">
-        <button @onclick="SavePageContent">Save</button>
-        <button @onclick="LoadPreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
-        <button @onclick="LoadNextPage" disabled="@(!HasNextPage)">Next</button>
+        <button class="btn btn-success" @onclick="SavePageContent">Save</button>
+        <button class="btn btn-danger" @onclick="DeletePage">Delete</button>
+        <button class="btn btn-secondary" @onclick="LoadPreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
+        <button class="btn btn-secondary" @onclick="LoadNextPage" disabled="@(!HasNextPage)">Next</button>
     </div>
+    @if (!IsEditingRoot)
+    {
+        <button @onclick="BackToRoot">Go Back</button>
+    }
 }
 
 @code {
-    private List<ESHOPMAT.Models.PageSettings> Pages = new();
+    private bool IsEditingRoot = true;
+    private PageContent EditingChild { get; set; }
+    private int StorePageIndex = 0;
+
+    private List<ESHOPMAT.Models.PageContent> Pages = new();
     private int CurrentPageIndex = 0;
+    private bool IsAddingChild = false; // Flag for showing the Add Child modal
 
-    private ESHOPMAT.Models.PageContent Root { get; set; }
-
+    private ESHOPMAT.Models.PageContent Root => Pages.Count > 0 ? Pages[CurrentPageIndex] : CreateDefaultPage();
     private bool HasPreviousPage => CurrentPageIndex > 0;
     private bool HasNextPage => CurrentPageIndex < Pages.Count - 1;
 
     protected override async Task OnInitializedAsync()
     {
-        // Load all pages from the database
-        Pages = await DbContext.Pages
-            .Select(p => new ESHOPMAT.Models.PageSettings
-                {
-                    Name = p.Name,
-                    Type = p.Type,
-                    RowCount = int.Parse(p.Data.GetValueOrDefault(p.Name + ":rows") ?? "1"),
-                    ColCount = int.Parse(p.Data.GetValueOrDefault(p.Name + ":columns") ?? "1"),
-                    Row = int.Parse(p.Data.GetValueOrDefault(p.Name + ":row") ?? "1"),
-                    Col = int.Parse(p.Data.GetValueOrDefault(p.Name + ":col") ?? "1"),
-                    RowSpan = int.Parse(p.Data.GetValueOrDefault(p.Name + ":rowspan") ?? "1"),
-                    ColSpan = int.Parse(p.Data.GetValueOrDefault(p.Name + ":colspan") ?? "1"),
-                    Count = int.Parse(p.Data.GetValueOrDefault(p.Name + ":count") ?? "1")
-                })
-            .ToListAsync();
+        PageContentDictionaryCache.Initialize(DbContext);
+        Pages = FetchRootPages();
 
-        // Initialize a default page if none exist
         if (Pages.Count == 0)
         {
-            InitializeDefaultPage();
+            var defaultPage = CreateDefaultPage();
+            Pages.Add(defaultPage);
+            await DbContext.Pages.AddAsync(defaultPage);
+            await DbContext.SaveChangesAsync();
         }
-
-        LoadCurrentPage();
     }
-
-    private void InitializeDefaultPage()
+    private List<PageContent> FetchRootPages()
     {
-        var defaultPage = new ESHOPMAT.Models.PageSettings
+        // For example, assume `PageContentService.GetAllPages()` fetches all pages
+
+        var allPages = DbContext.Pages.ToList();
+        return allPages.Where(page => page.IsRoot).ToList();
+    }
+    private ESHOPMAT.Models.PageContent CreateDefaultPage()
+    {
+        var defaultPage = new PageContent(new PageSettings
             {
-                Name = "Root",
+                Name = "DefaultPage",
                 Type = "Container",
-                RowCount = 4,
-                ColCount = 4
-            };
+                RowCount = 16,
+                ColCount = 16,
+                IsRoot = true
+            }, DbContext2);
 
-        Pages.Add(defaultPage);
-    }
-
-    private void LoadCurrentPage()
-    {
-        var currentPageSettings = Pages[CurrentPageIndex];
-        Root = new ESHOPMAT.Models.PageContent(currentPageSettings);
-
-        // Add child components to the Root dynamically if needed
-        var counterSettings = new ESHOPMAT.Models.PageSettings
+        var nestedContainer = new PageSettings
             {
-                Name = "Counter1",
-                Type = "Counter",
-                Row = 1,
-                Col = 1,
-                RowSpan = 1,
-                ColSpan = 1
+                Name = "NestedContainer",
+                Type = "Container",
+                RowCount = 2,
+                ColCount = 2,
+                Row = 2,
+                Col = 2,
+                RowSpan = 2,
+                ColSpan = 2
             };
 
-        Root.AddChild(counterSettings);
+        defaultPage.AddChild(nestedContainer);
+        return defaultPage;
     }
 
     private async Task SavePageContent()
     {
         if (Pages.Count == 0) return;
 
-        var currentPageSettings = Pages[CurrentPageIndex];
-
-        // Check if the page exists in the database
-        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPageSettings.Name);
+        var currentPage = Pages[CurrentPageIndex];
+        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
 
         if (existingPage != null)
         {
-            // Update the existing page
-            existingPage.Data = Root.Data; // Update with new data
-            DbContext.Pages.Update(existingPage);
+            DbContext.Entry(existingPage).State = EntityState.Detached; // Detach to avoid conflicts
+            DbContext.Pages.Update(currentPage);
         }
         else
         {
-            // Create a new page
-            var newPage = new ESHOPMAT.Models.PageContent(currentPageSettings);
-            await DbContext.Pages.AddAsync(newPage);
+            await DbContext.Pages.AddAsync(currentPage);
         }
 
         await DbContext.SaveChangesAsync();
+        PageContentDictionaryCache.Update(currentPage.SharedId, currentPage.Data, DbContext);
+    }
+
+    private async Task DeletePage()
+    {
+        if (Pages.Count == 0) return;
+
+        var currentPage = Pages[CurrentPageIndex];
+        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
+
+        if (existingPage != null)
+        {
+            DbContext.Pages.Remove(existingPage);
+            await DbContext.SaveChangesAsync();
+        }
+
+        Pages.RemoveAt(CurrentPageIndex);
+
+        if (CurrentPageIndex >= Pages.Count && Pages.Count > 0)
+        {
+            CurrentPageIndex = Pages.Count - 1;
+        }
     }
 
     private void LoadPreviousPage()
@@ -114,7 +190,6 @@ else
         if (HasPreviousPage)
         {
             CurrentPageIndex--;
-            LoadCurrentPage();
         }
     }
 
@@ -123,7 +198,102 @@ else
         if (HasNextPage)
         {
             CurrentPageIndex++;
-            LoadCurrentPage();
+        }
+    }
+
+    private void ShowAddChildModal()
+    {
+        IsAddingChild = true; // Show the Add Child modal
+    }
+
+    private void HandleCloseAddModal(bool isVisible)
+    {
+        IsAddingChild = isVisible; // Hide the modal
+    }
+
+    private void HandleAddChild(PageSettings newChildSettings)
+    {
+        // Add the new child component to the current root
+        Root.AddChild(newChildSettings);
+    }
+
+
+    // Handle the logic for editing a child component
+    private void EditChild(PageContent child)
+    {
+        StorePageIndex = CurrentPageIndex;
+
+        Pages.Add(child);
+        CurrentPageIndex = Pages.Count - 1;
+        IsEditingRoot = false; // Keep the editing state for child components
+                               // Optional: Set up further logic if needed to edit specific child data
+    }
+    private void BackToRoot()
+    {
+        IsEditingRoot = true;
+        var x = Root;
+        Console.WriteLine( "aaaaaaaaaaa");
+        Pages.Remove(Root);
+        CurrentPageIndex = StorePageIndex;
+    }
+
+    // Method to update data values for the page or child component
+    private void UpdateDataValue(PageContent page, string key, string value)
+    {
+        page.SetValue(key, value);
+    }
+
+    private async void DeleteChild(PageContent child)
+    {
+        try
+        {
+            // Ensure the child entity is loaded and tracked by the DbContext
+            var trackedChild = await DbContext.Pages.FindAsync(child.Id);
+            if (trackedChild != null)
+            {
+                // Remove the child entity from the database
+                DbContext.Pages.Remove(trackedChild);
+                await DbContext.SaveChangesAsync();
+
+                // Recursively delete related data
+                DeleteChildDataRecursively(trackedChild);
+
+                // Reinitialize component state
+                await OnInitializedAsync();
+            }
+            else
+            {
+                Console.WriteLine("Child entity not found for deletion.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting child: {ex.Message}");
+        }
+    }
+
+    private void DeleteChildDataRecursively(PageContent child)
+    {
+        // Remove any entries in the Data dictionary that belong to this child
+        var keysToRemove = Root.Data.Keys.Where(key => key.StartsWith(child.Name + ":")).ToList();
+
+        foreach (var key in keysToRemove)
+        {
+            Root.Data.Remove(key);
+        }
+
+        // Recursively do the same for all child components of the current child
+        foreach (var grandchild in child.Children)
+        {
+            DeleteChildDataRecursively(grandchild);
+        }
+    }
+
+    private void DeleteDataEntry(string key)
+    {
+        if (Root.Data.ContainsKey(key))
+        {
+            Root.Data.Remove(key);
         }
     }
 }

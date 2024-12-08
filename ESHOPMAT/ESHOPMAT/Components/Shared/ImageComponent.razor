@@ -1,0 +1,123 @@
+﻿@using Microsoft.AspNetCore.Components.Forms;
+
+<div class="image-container">
+    @if (IsEditing)
+    {
+        <label for="fileUpload" class="upload-label">Drag and drop or click to upload an image</label>
+        <InputFile OnChange="OnImageSelected" class="file-input" />
+
+
+        @if (!string.IsNullOrEmpty(ImageUrl))
+        {
+            <img src="@ImageUrl" alt="Uploaded Image" class="preview-image" />
+        }
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(ImageUrl))
+        {
+            <img src="@ImageUrl" alt="Image" class="display-image" />
+        }
+        else
+        {
+            <p>No image available</p>
+        }
+    }
+</div>
+
+@code {
+    [Inject]
+    private PageDbContext DbContext { get; set; }
+
+    [Parameter]
+    public PageContent Page { get; set; }
+
+    [Parameter]
+    public bool IsEditing { get; set; }
+
+    public string Name { get; set; }
+
+    public Dictionary<string, string> Data { get; set; }
+
+    private string ImageUrl
+    {
+        get => Data.GetValueOrDefault(Name + ":image") ?? string.Empty;
+        set => Data[Name + ":image"] = value;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Name = Page.Name;
+        Data = Page.Data;
+    }
+
+    private async Task OnImageSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file != null)
+        {
+            var imageData = new byte[file.Size];
+            await file.OpenReadStream().ReadAsync(imageData);
+
+            ImageUrl = await SaveImageToDatabase(file.Name, imageData);
+        }
+    }
+
+
+
+    private async Task<string> SaveImageToDatabase(string fileName, byte[] imageData)
+    {
+        // Create a new image entry
+        var imageEntry = new PageImage
+            {
+                FileName = fileName,
+                Data = imageData
+            };
+
+        // Save to database
+        DbContext.Images.Add(imageEntry);
+        await DbContext.SaveChangesAsync();
+
+        // Return the URL for accessing the image
+        return $"/images/{imageEntry.Id}"; // Replace with actual URL logic if needed
+    }
+}
+
+public class PageImage
+{
+    public int Id { get; set; }
+    public string FileName { get; set; }
+    public byte[] Data { get; set; }
+}
+
+<style>
+    .image-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px;
+        border: 1px dashed #ccc;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        width: 300px;
+    }
+
+    .upload-label {
+        display: block;
+        cursor: pointer;
+        color: #007bff;
+        margin-bottom: 10px;
+    }
+
+    .file-input {
+        display: none;
+    }
+
+    .preview-image, .display-image {
+        max-width: 100%;
+        max-height: 200px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        margin-top: 10px;
+    }
+</style>

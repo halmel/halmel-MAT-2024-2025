@@ -1,9 +1,11 @@
 using ESHOPMAT.Components;
 using ESHOPMAT.Components.Account;
 using ESHOPMAT.Data;
+using ESHOPMAT.Models;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
