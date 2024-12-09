@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.IdentityModel.Tokens;
 using System.Collections.Concurrent;
@@ -89,7 +90,7 @@ namespace ESHOPMAT.Models
             }
 
             Name = settings.Name;
-            Type = settings.Type;
+            Type = settings.Type.ToString();
             IsRoot = settings.IsRoot;
             InitializeComponentData(settings);
         }
@@ -121,7 +122,7 @@ namespace ESHOPMAT.Models
         {
 
             // Use namespaced keys
-            SetValue("type", settings.Type);
+            SetValue("type", settings.Type.ToString());
 
             switch (Type)
             {
@@ -193,7 +194,11 @@ namespace ESHOPMAT.Models
             var settings = new PageSettings
             {
                 Name = Name,
-                Type = Data.TryGetValue($"{Name}:type", out var type) ? type : "Unknown",
+                Type = Data.TryGetValue($"{Name}:type", out var typeString)
+    && Enum.TryParse<ComponentType>(typeString, true, out var typeEnum)
+    ? typeEnum
+    : ComponentType.Unknown,
+
                 RowCount = Data.TryGetValue($"{Name}:rows", out var rows) && int.TryParse(rows, out var rowCount) ? rowCount : 1,
                 ColCount = Data.TryGetValue($"{Name}:columns", out var columns) && int.TryParse(columns, out var colCount) ? colCount : 1,
                 IsRoot = Data.TryGetValue($"{Name}:isRoot", out var isRoot) && bool.TryParse(isRoot, out var root) && root
@@ -342,7 +347,7 @@ namespace ESHOPMAT.Models
         public class PageSettings
         {
             public string Name { get; set; }
-            public string Type { get; set; }
+        public ComponentType Type { get; set; } = ComponentType.Unknown;
             public Guid ShareId { get; set; }
 
             public PageDbContext PageDbContext { get; set; }
@@ -355,16 +360,48 @@ namespace ESHOPMAT.Models
 
             public bool IsRoot { get; set; } = false;
 
-            public int RowCount { get; set; }
-            public int ColCount { get; set; }
+        public int RowCount { get; set; } = 1;
+        public int ColCount { get; set; } = 1;
 
             public int Count { get; set; } = 1;
 
-        public string Title { get; set; }
-        public string Text { get; set; }
+        public string Title { get; set; } = "";
+        public string Text { get; set; } = "";
 
-        public string ImageUrl { get; set; }
+        public string ImageUrl { get; set; } = "";
         }
+    public enum ComponentType
+    {
+        Container,
+        Counter,
+        TextBlock,
+        Image,
+        Unknown
+    }
+    //[Route("images")]
+    //[ApiController]
+    //public class ImagesController : ControllerBase
+    //{
+    //    private readonly PageDbContext _dbContext;
 
-    
+    //    public ImagesController(PageDbContext dbContext)
+    //    {
+    //        _dbContext = dbContext;
+    //    }
+
+    //    [HttpGet("{id}")]
+    //    public IActionResult GetImage(int id)
+    //    {
+    //        var image = _dbContext.Images.Find(id);
+    //        if (image == null)
+    //        {
+    //            return NotFound();
+    //        }
+
+    //        // Return the image data as a file
+    //        return File(image.Data, "image/jpeg", image.FileName);
+    //    }
+    //}
+
+
 }

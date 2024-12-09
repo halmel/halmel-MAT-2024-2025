@@ -121,7 +121,7 @@ else
         var defaultPage = new PageContent(new PageSettings
             {
                 Name = "DefaultPage",
-                Type = "Container",
+                Type = ComponentType.Container,
                 RowCount = 16,
                 ColCount = 16,
                 IsRoot = true
@@ -130,7 +130,7 @@ else
         var nestedContainer = new PageSettings
             {
                 Name = "NestedContainer",
-                Type = "Container",
+                Type = ComponentType.Container,
                 RowCount = 2,
                 ColCount = 2,
                 Row = 2,
@@ -211,12 +211,25 @@ else
         IsAddingChild = isVisible; // Hide the modal
     }
 
-    private void HandleAddChild(PageSettings newChildSettings)
+    private async void HandleAddChild(PageSettings newChildSettings)
     {
+        if (newChildSettings.IsRoot == true)
+        {
+           await AddRoot(newChildSettings);
+        }else
+        {
         // Add the new child component to the current root
         Root.AddChild(newChildSettings);
+            
+        }
     }
-
+    private async Task AddRoot(PageSettings x)
+    {
+        var defaultPage = new PageContent(x, DbContext);
+        Pages.Add(defaultPage);
+        await DbContext.Pages.AddAsync(defaultPage);
+        await DbContext.SaveChangesAsync();
+    }
 
     // Handle the logic for editing a child component
     private void EditChild(PageContent child)
@@ -296,4 +309,6 @@ else
             Root.Data.Remove(key);
         }
     }
+
+
 }

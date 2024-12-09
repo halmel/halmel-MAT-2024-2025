@@ -69,32 +69,45 @@
                 </div>
                 <div class="modal-body">
                     <!-- Loop over each property of PageSettings and generate input fields -->
-                    @foreach (var property in GetProperties())
-                    {
-                        <div class="form-group">
-                            <label for="@property.Name">@property.Name</label>
-                            @if (property.PropertyType == typeof(string))
-                            {
-                                <input id="@property.Name" class="form-control"
-                                       value="@GetPropertyValue(property.Name)"
-                                       @oninput="(e) => SetPropertyValue(property.Name, e.Value.ToString())" />
-                            }
-                            else if (property.PropertyType == typeof(int))
-                            {
-                                <input id="@property.Name" type="number" class="form-control"
-                                       value="@GetPropertyValue(property.Name)"
-                                       @oninput="(e) => SetPropertyValue(property.Name, int.Parse(e.Value.ToString()))" />
-                            }
-                            else if (property.PropertyType == typeof(bool))
-                            {
-                                <!-- For boolean type, handle checkbox changes with @onchange -->
-                                <input id="@property.Name" type="checkbox" class="form-check-input"
-                                       checked="@((bool)GetPropertyValue(property.Name))"
-                                       @onchange="(e) => OnBooleanValueChanged(property.Name, (bool)e.Value)" />
-                            }
-                            <!-- Add more input types based on property type if needed -->
-                        </div>
-                    }
+@foreach (var property in GetProperties())
+{
+    <div class="form-group">
+        <label for="@property.Name">@property.Name</label>
+        @if (property.PropertyType == typeof(string))
+        {
+            <input id="@property.Name" class="form-control"
+                   value="@GetPropertyValue(property.Name)"
+                   @oninput="(e) => SetPropertyValue(property.Name, e.Value.ToString())" />
+        }
+        else if (property.PropertyType == typeof(int))
+        {
+            <input id="@property.Name" type="number" class="form-control"
+                   value="@GetPropertyValue(property.Name)"
+                   @oninput="(e) => SetPropertyValue(property.Name, int.Parse(e.Value.ToString()))" />
+        }
+        else if (property.PropertyType == typeof(bool))
+        {
+            <input id="@property.Name" type="checkbox" class="form-check-input"
+                   checked="@((bool)GetPropertyValue(property.Name))"
+                   @onchange="(e) => OnBooleanValueChanged(property.Name, (bool)e.Value)" />
+        }
+        else if (property.PropertyType.IsEnum) 
+        {
+            <!-- Render a dropdown for enums -->
+            <select id="@property.Name" class="form-select"
+                    @onchange="(e) => SetPropertyValue(property.Name, Enum.Parse(property.PropertyType, e.Value.ToString()))">
+                @foreach (var value in Enum.GetValues(property.PropertyType))
+                {
+                    <option value="@value" selected="@value.Equals(GetPropertyValue(property.Name))">
+                        @value
+                    </option>
+                }
+            </select>
+        }
+        <!-- Add more input types based on property type if needed -->
+    </div>
+}
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" @onclick="AddChildComponent">Add</button>

@@ -1,22 +1,27 @@
-﻿@using Microsoft.AspNetCore.Components.Forms;
+﻿@using Microsoft.AspNetCore.Components.Forms
+
+
 
 <div class="image-container">
     @if (IsEditing)
     {
         <label for="fileUpload" class="upload-label">Drag and drop or click to upload an image</label>
-        <InputFile OnChange="OnImageSelected" class="file-input" />
+        <InputFile OnChange="OnImageSelected" id="fileUpload" class="file-input" />
 
-
-        @if (!string.IsNullOrEmpty(ImageUrl))
+        @if (!string.IsNullOrEmpty(ImageBase64))
         {
-            <img src="@ImageUrl" alt="Uploaded Image" class="preview-image" />
+            <img src="@ImageBase64" alt="Image" class="display-image" />
+        }
+        else
+        {
+            <p>No image available</p>
         }
     }
     else
     {
-        @if (!string.IsNullOrEmpty(ImageUrl))
+        @if (!string.IsNullOrEmpty(ImageBase64))
         {
-            <img src="@ImageUrl" alt="Image" class="display-image" />
+            <img src="@ImageBase64" alt="Image" class="display-image" />
         }
         else
         {
@@ -29,6 +34,22 @@
     [Inject]
     private PageDbContext DbContext { get; set; }
 
+    public string ImageId { get; set; }
+
+    private string ImageBase64 { get; set; }
+
+
+    private async Task LoadImageFromDatabase()
+    {
+        // Fetch the image data from the database
+
+        var image = await DbContext.Images.FindAsync(1);
+        if (image != null && image.Data != null)
+        {
+            // Convert the byte array to a Base64 string
+            ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
+        }
+    }
     [Parameter]
     public PageContent Page { get; set; }
 
@@ -36,17 +57,18 @@
     public bool IsEditing { get; set; }
 
     public string Name { get; set; }
-
     public Dictionary<string, string> Data { get; set; }
 
     private string ImageUrl
     {
-        get => Data.GetValueOrDefault(Name + ":image") ?? string.Empty;
-        set => Data[Name + ":image"] = value;
+        get => Data.GetValueOrDefault($"{Name}:image") ?? string.Empty;
+        set => Data[$"{Name}:image"] = value;
     }
 
     protected override async Task OnInitializedAsync()
     {
+        ImageId = Page.Data[Page.Name + ":image"];
+        await LoadImageFromDatabase();
         Name = Page.Name;
         Data = Page.Data;
     }
@@ -56,18 +78,16 @@
         var file = e.File;
         if (file != null)
         {
+            using var stream = file.OpenReadStream();
             var imageData = new byte[file.Size];
-            await file.OpenReadStream().ReadAsync(imageData);
+            await stream.ReadAsync(imageData);
 
             ImageUrl = await SaveImageToDatabase(file.Name, imageData);
         }
     }
 
-
-
     private async Task<string> SaveImageToDatabase(string fileName, byte[] imageData)
     {
-        // Create a new image entry
         var imageEntry = new PageImage
             {
                 FileName = fileName,
@@ -78,16 +98,11 @@
         DbContext.Images.Add(imageEntry);
         await DbContext.SaveChangesAsync();
 
-        // Return the URL for accessing the image
-        return $"/images/{imageEntry.Id}"; // Replace with actual URL logic if needed
+        // Return the endpoint URL for the saved image
+        return $"{imageEntry.Id}";
     }
-}
 
-public class PageImage
-{
-    public int Id { get; set; }
-    public string FileName { get; set; }
-    public byte[] Data { get; set; }
+
 }
 
 <style>
@@ -103,7 +118,6 @@ public class PageImage
     }
 
     .upload-label {
-        display: block;
         cursor: pointer;
         color: #007bff;
         margin-bottom: 10px;
