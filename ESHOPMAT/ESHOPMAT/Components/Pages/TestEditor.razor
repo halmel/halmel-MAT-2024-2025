@@ -253,9 +253,46 @@ else
     // Method to update data values for the page or child component
     private void UpdateDataValue(PageContent page, string key, string value)
     {
-        page.SetValue(key, value);
+        page.SetValue(GetStringAfterColon(key), value, GetStringBeforeColon(key));
     }
+    static string GetStringBeforeColon(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return string.Empty;
+        }
 
+        // Find the index of the colon
+        int colonIndex = input.IndexOf(':');
+
+        // If a colon is found, return the substring before it
+        if (colonIndex >= 0)
+        {
+            return input.Substring(0, colonIndex);
+        }
+
+        // If no colon is found, return the entire string
+        return input;
+    }
+    static string GetStringAfterColon(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+        {
+            return string.Empty;
+        }
+
+        // Find the index of the colon
+        int colonIndex = input.IndexOf(':');
+
+        // If a colon is found, return the substring after it
+        if (colonIndex >= 0 && colonIndex < input.Length - 1)
+        {
+            return input.Substring(colonIndex + 1); // Return everything after the colon
+        }
+
+        // If no colon is found, return an empty string
+        return string.Empty;
+    }
     private async void DeleteChild(PageContent child)
     {
         try

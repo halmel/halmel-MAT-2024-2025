@@ -129,6 +129,7 @@ namespace ESHOPMAT.Models
                 case "Container":
                     SetValue("columns", settings.ColCount.ToString());
                     SetValue("rows", settings.RowCount.ToString());
+                    SetValue("rowHeight", settings.RowHeight.ToString());
                     break;
                 case "Counter":
                     SetValue("count", settings.Count.ToString());
@@ -358,7 +359,9 @@ namespace ESHOPMAT.Models
             public int RowSpan { get; set; } = 1;
             public int ColSpan { get; set; } = 1;
 
-            public bool IsRoot { get; set; } = false;
+        public int RowHeight { get; set; } = 1;
+
+        public bool IsRoot { get; set; } = false;
 
         public int RowCount { get; set; } = 1;
         public int ColCount { get; set; } = 1;

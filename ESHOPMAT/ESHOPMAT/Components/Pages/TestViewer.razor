@@ -9,78 +9,11 @@
 }
 else
 {
-    <h3>Editing Page: @Root.Name</h3>
     <DynamicComponentRendering Page="Root" ></DynamicComponentRendering>
-
-    <h4>Main Component Data</h4>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Key</th>
-                <th>Value</th>
-                <th>Actions</th> <!-- New column for the delete button -->
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var dataItem in Root.Data.ToList())
-            {
-                <tr>
-                    <td>@dataItem.Key</td>
-                    <td>
-                        <input type="text" value="@dataItem.Value" @oninput="(e) => UpdateDataValue(Root, dataItem.Key, e.Value?.ToString())" />
-                    </td>
-                    <td>
-                        <button @onclick="() => DeleteDataEntry(dataItem.Key)">Delete</button> <!-- Delete button -->
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-
-    <h4>Child Components</h4>
-    @if (Root.Children.Count > 0)
-    {
-        <ul>
-            @foreach (var child in Root.Children)
-            {
-                <li>
-                    <strong>@child.Name (@child.Type)</strong>
-                    <button @onclick="() => EditChild(child)">Edit</button>
-                    <button @onclick="() => DeleteChild(child)">Delete</button>
-                    @if (child.Children.Count > 0)
-                    {
-                        <ul>
-                            @foreach (var grandchild in child.Children)
-                            {
-                                <li>@grandchild.Name (@grandchild.Type)</li>
-                            }
-                        </ul>
-                    }
-                </li>
-            }
-        </ul>
-    }
-    else
-    {
-        <p>No child components.</p>
-    }
-
-    <!-- Button to open the Add Child modal -->
-    <button class="btn btn-primary" @onclick="ShowAddChildModal">Add Child</button>
-
-    <!-- Modal component to add a new child component -->
-    <AddChildModal IsVisible="IsAddingChild" OnClose="HandleCloseAddModal" OnAdd="HandleAddChild" />
-
     <div style="margin-top: 20px;">
-        <button class="btn btn-success" @onclick="SavePageContent">Save</button>
-        <button class="btn btn-danger" @onclick="DeletePage">Delete</button>
         <button class="btn btn-secondary" @onclick="LoadPreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
         <button class="btn btn-secondary" @onclick="LoadNextPage" disabled="@(!HasNextPage)">Next</button>
     </div>
-    @if (!IsEditingRoot)
-    {
-        <button @onclick="BackToRoot">Go Back</button>
-    }
 }
 
 @code {
