@@ -69,28 +69,6 @@ namespace ESHOPMAT.Migrations.PageDb
                     b.ToTable("PageContentDictionaries");
                 });
 
-            modelBuilder.Entity("ESHOPMAT.Models.PageImage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<byte[]>("Data")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Images");
-                });
-
             modelBuilder.Entity("ESHOPMAT.Models.PageContent", b =>
                 {
                     b.HasOne("ESHOPMAT.Models.PageContent", "Parent")

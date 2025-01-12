@@ -1,0 +1,306 @@
+﻿@if (IsVisible)
+{
+    <div class="modal show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(IsEditing ? "Edit Product" : "Add New Product")</h5>
+                    <button type="button" class="btn-close" @onclick="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="CurrentProduct" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <InputText id="name" class="form-control" @bind-Value="CurrentProduct.Name" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <InputTextArea id="description" class="form-control" @bind-Value="CurrentProduct.Description" rows="3" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="type" class="form-label">Type</label>
+                            <InputSelect id="type" class="form-control" @bind-Value="CurrentProduct.Type">
+                                @foreach (var type in Enum.GetValues<ProductType>())
+                                {
+                                    <option value="@type">@type</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label for="price" class="form-label">Price</label>
+                            <InputNumber id="price" class="form-control" @bind-Value="CurrentProduct.Price" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Amount</label>
+                            <InputNumber id="amount" class="form-control" @bind-Value="CurrentProduct.Amount" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="imageUpload" class="form-label">Upload Images</label>
+                            <InputFile id="imageUpload" OnChange="OnImagesSelected" multiple accept=".jpg,.jpeg,.png" class="form-control" />
+                        </div>
+
+                        <div class="image-preview-container">
+                            @if (Images.Any())
+                            {
+                                @for (int i = 0; i < ImageOrder.Count; i++)
+                                {
+                                    var currentIndex = i;
+                                    var imageIndex = ImageOrder[i];
+                                    var image = Images[imageIndex];
+                                    <div class="image-preview">
+                                        <button type="button" class="btn btn-danger btn-sm" @onclick="() => RemoveImage(currentIndex)">X</button>
+                                        <img src="@(image.Base64 ?? GetImageUrl(image.Id))" alt="Preview Image" />
+                                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => MoveImageUp(currentIndex)" disabled="@(currentIndex == 0)">↑</button>
+                                        <button type="button" class="btn btn-secondary btn-sm" @onclick="() => MoveImageDown(currentIndex)" disabled="@(currentIndex == ImageOrder.Count - 1)">↓</button>
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <p>No images selected</p>
+                            }
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">@(IsEditing ? "Save Changes" : "Add Product")</button>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .image-preview-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 1rem;
+    }
+
+    .image-preview {
+        position: relative;
+        width: 150px;
+        height: 150px;
+        border: 1px solid #ddd;
+        padding: 5px;
+    }
+
+        .image-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-preview button {
+            position: absolute;
+            z-index: 1;
+        }
+
+        .image-preview .btn-danger {
+            top: 5px;
+            right: 5px;
+        }
+
+        .image-preview .btn-secondary:nth-of-type(2) {
+            bottom: 5px;
+            right: 30px;
+        }
+
+        .image-preview .btn-secondary:nth-of-type(3) {
+            bottom: 5px;
+            right: 5px;
+        }
+</style>
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<Product> OnSave { get; set; }
+    [Parameter] public Product? ProductToEdit { get; set; }
+
+    private bool IsEditing => ProductToEdit != null;
+    private Product CurrentProduct = new();
+    private List<UploadedFile> Images = new();
+    private List<int> ImageOrder = new();
+
+    [Inject]
+    private IDbContextFactory<ImageDbContext> DbImageContextFactory { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (ProductToEdit != null)
+        {
+            CurrentProduct = new Product
+                {
+                    Id = ProductToEdit.Id,
+                    Name = ProductToEdit.Name,
+                    Description = ProductToEdit.Description,
+                    Type = ProductToEdit.Type,
+                    Price = ProductToEdit.Price,
+                    Amount = ProductToEdit.Amount,
+                    ImageIds = ProductToEdit.ImageIds
+                };
+
+            // Load existing images
+            Images.Clear();
+            ImageOrder.Clear();
+
+            await using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
+            for (int i = 0; i < ProductToEdit.ImageIds.Length; i++)
+            {
+                var imageId = ProductToEdit.ImageIds[i];
+                var dbImage = await dbContext.Images.FindAsync(imageId);
+                if (dbImage != null)
+                {
+                    Images.Add(new UploadedFile
+                        {
+                            Id = dbImage.Id,
+                            Name = dbImage.FileName,
+                            Data = dbImage.Data,
+                            IsExisting = true
+                        });
+                    ImageOrder.Add(i);
+                }
+            }
+        }
+        else
+        {
+            CurrentProduct = new Product
+                {
+                    ImageIds = Array.Empty<int>()
+                };
+            Images.Clear();
+            ImageOrder.Clear();
+        }
+    }
+
+    private string GetImageUrl(int? imageId)
+    {
+        if (!imageId.HasValue || imageId.Value == 0) return string.Empty;
+        using var dbContext = DbImageContextFactory.CreateDbContext();
+        var image = dbContext.Images.Find(imageId.Value);
+        return image != null ? $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}" : string.Empty;
+    }
+
+    private async Task OnImagesSelected(InputFileChangeEventArgs e)
+    {
+        var startIndex = Images.Count;
+        foreach (var file in e.GetMultipleFiles())
+        {
+            if (file.Size > 5 * 1024 * 1024) // Limit size to 5 MB
+            {
+                Console.Error.WriteLine($"File {file.Name} exceeds size limit");
+                continue;
+            }
+            using var stream = file.OpenReadStream();
+            var imageData = new byte[file.Size];
+            await stream.ReadAsync(imageData);
+            Images.Add(new UploadedFile
+                {
+                    Name = file.Name,
+                    Base64 = $"data:image/jpeg;base64,{Convert.ToBase64String(imageData)}",
+                    Data = imageData,
+                    IsExisting = false
+                });
+            ImageOrder.Add(startIndex++);
+        }
+        StateHasChanged();
+    }
+
+    private void MoveImageUp(int index)
+    {
+        if (index > 0)
+        {
+            var temp = ImageOrder[index];
+            ImageOrder[index] = ImageOrder[index - 1];
+            ImageOrder[index - 1] = temp;
+            StateHasChanged();
+        }
+    }
+
+    private void MoveImageDown(int index)
+    {
+        if (index < ImageOrder.Count - 1)
+        {
+            var temp = ImageOrder[index];
+            ImageOrder[index] = ImageOrder[index + 1];
+            ImageOrder[index + 1] = temp;
+            StateHasChanged();
+        }
+    }
+
+    private void RemoveImage(int orderIndex)
+    {
+        if (orderIndex >= 0 && orderIndex < ImageOrder.Count)
+        {
+            var imageIndex = ImageOrder[orderIndex];
+            Images.RemoveAt(imageIndex);
+            ImageOrder.RemoveAt(orderIndex);
+
+            // Adjust indices
+            for (int i = 0; i < ImageOrder.Count; i++)
+            {
+                if (ImageOrder[i] > imageIndex)
+                {
+                    ImageOrder[i]--;
+                }
+            }
+            StateHasChanged();
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        await using var dbContext = DbImageContextFactory.CreateDbContext();
+        var imageIds = new List<int>();
+
+        // Process new images
+        foreach (var orderIndex in ImageOrder)
+        {
+            var image = Images[orderIndex];
+            if (!image.IsExisting)
+            {
+                var imageEntry = new PageImage
+                    {
+                        FileName = $"{Guid.NewGuid()}.jpg",
+                        Data = image.Data
+                    };
+                dbContext.Images.Add(imageEntry);
+                await dbContext.SaveChangesAsync();
+                imageIds.Add(imageEntry.Id);
+            }
+            else
+            {
+                imageIds.Add(image.Id);
+            }
+        }
+
+        CurrentProduct.ImageIds = imageIds.ToArray();
+
+        if (OnSave.HasDelegate)
+        {
+            await OnSave.InvokeAsync(CurrentProduct);
+        }
+
+        await Close();
+    }
+
+    private async Task Close()
+    {
+        if (OnClose.HasDelegate)
+        {
+            await OnClose.InvokeAsync();
+        }
+    }
+
+    private class UploadedFile
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string? Base64 { get; set; }
+        public byte[] Data { get; set; }
+        public bool IsExisting { get; set; }
+    }
+}

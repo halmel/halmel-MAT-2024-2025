@@ -1,0 +1,37 @@
+﻿@using Microsoft.AspNetCore.Components
+@page "/productlist"
+
+@code {
+    [Parameter]
+    public List<Product> Products { get; set; }  // The list of products to display
+
+    [Parameter]
+    public bool IsEditing { get; set; }          // For future usage: allows editing if needed
+
+    private void RedirectToProduct(int productId)
+    {
+        // Logic to navigate to a product detail page, for now just logging
+        // Navigation logic can be added here using NavigationManager
+        NavigationManager.NavigateTo($"/product/{productId}");
+    }
+}
+
+<div class="product-list">
+    @foreach (var product in Products)
+    {
+        <ProductBlock Product="product" OnProductClick="RedirectToProduct" />
+    }
+</div>
+
+<style>
+    .product-list {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        gap: 20px;
+    }
+</style>
+
+@code {
+    [Inject] NavigationManager NavigationManager { get; set; }
+}

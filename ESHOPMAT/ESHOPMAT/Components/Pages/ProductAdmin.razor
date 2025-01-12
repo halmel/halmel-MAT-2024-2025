@@ -1,0 +1,299 @@
+﻿@page "/admin/products"
+@inject IDbContextFactory<ImageDbContext> DbImageContextFactory
+@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
+
+<h3>Product Management</h3>
+
+<button class="btn btn-primary mb-3" @onclick="() => ShowModal()">Add New Product</button>
+
+<div class="product-list">
+    @if (GroupedProducts.Any())
+    {
+        @foreach (var group in GroupedProducts)
+        {
+            <div class="product-group">
+                <h4 style="color: @(GetColorForType(group.Key))">@group.Key</h4>
+                <div class="product-items">
+                    @foreach (var product in group.Value)
+                    {
+                        <div class="product-item">
+                            <div class="product-image">
+                                <img src="@GetImageUrl(product.ImageIds.FirstOrDefault())" alt="Product Image" />
+                            </div>
+                            <div class="product-details">
+                                <h5>@product.Name</h5>
+                                <p>Description: @product.Description</p>
+                                <p>Price: $@product.Price</p>
+                                <p>Amount: @product.Amount</p>
+                                <div class="actions">
+                                    <button class="btn btn-secondary me-2" @onclick="() => ShowModal(product)">Edit</button>
+                                    <button class="btn btn-danger" @onclick="() => DeleteProduct(product)">Delete</button>
+                                    <a class="btn btn-danger" href="/product/@product.Id">ViewPAge</a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <p>No products available. Click "Add New Product" to create one.</p>
+    }
+</div>
+
+<ProductModal 
+IsVisible="@showModal" 
+ProductToEdit="@selectedProduct"
+OnClose="@HandleCloseModal" 
+OnSave="@HandleSaveProduct" />
+
+<style>
+    .product-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 1rem;
+    }
+
+    .product-group {
+    margin-bottom: 2rem;
+    }
+
+    .product-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: flex-start;
+    }
+
+    .product-item {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    width: 280px;
+    background-color: #fff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .product-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .product-image {
+    width: 100%;
+    height: 180px;
+    background-color: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    }
+
+    .product-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background-color: transparent;
+    }
+
+    .product-details {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    }
+
+    .product-details h5 {
+    font-size: 1.2rem;
+    margin: 0;
+    color: #333;
+    }
+
+    .product-details p {
+    margin: 0;
+    color: #666;
+    }
+
+    .actions {
+    display: flex;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+    }
+
+    .actions .btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    border-radius: 4px;
+    }
+
+    .actions .btn-secondary {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    }
+
+    .actions .btn-secondary:hover {
+    background-color: #0056b3;
+    }
+
+    .actions .btn-danger {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    }
+
+    .actions .btn-danger:hover {
+    background-color: #b02a37;
+    }
+</style>
+
+@code {
+    private List<Product> Products = new();
+    private Dictionary<string, List<Product>> GroupedProducts = new();
+    private bool showModal = false;
+    private Product? selectedProduct;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        try
+        {
+            await using var dbContext = await DbProductContextFactory.CreateDbContextAsync();
+            Products = await dbContext.Products.ToListAsync();
+            GroupedProducts = Products
+                .GroupBy(p => p.Type.ToString())
+                .ToDictionary(g => g.Key, g => g.ToList());
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading products: {ex.Message}");
+        }
+    }
+
+    private string GetImageUrl(int? imageId)
+    {
+        if (imageId.HasValue && imageId.Value != 0)
+        {
+            using var dbContext = DbImageContextFactory.CreateDbContext();
+            var image = dbContext.Images.Find(imageId.Value);
+            return image != null ? $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}" : "/images/default-product.jpg";
+        }
+        return "/images/default-product.jpg";
+    }
+
+    private void ShowModal(Product? product = null)
+    {
+        selectedProduct = product;
+        showModal = true;
+    }
+
+    private void HandleCloseModal()
+    {
+        showModal = false;
+        selectedProduct = null;
+    }
+
+    private async Task HandleSaveProduct(Product product)
+    {
+        try
+        {
+            await using var dbContext = await DbProductContextFactory.CreateDbContextAsync();
+
+            if (product.Id == 0)
+            {
+                // Ensure the Id is not included when adding the product
+                product.Id = default; // Reset Id to allow the database to auto-generate
+                dbContext.Products.Add(product);
+            }
+            else
+            {
+                // Existing product
+                var existingProduct = await dbContext.Products.FindAsync(product.Id);
+                if (existingProduct != null)
+                {
+                    // Update existing product properties
+                    existingProduct.Name = product.Name;
+                    existingProduct.Description = product.Description;
+                    existingProduct.Type = product.Type;
+                    existingProduct.Price = product.Price;
+                    existingProduct.Amount = product.Amount;
+                    existingProduct.ImageIds = product.ImageIds;
+
+                    dbContext.Products.Update(existingProduct);
+                }
+            }
+
+            await dbContext.SaveChangesAsync();
+            await LoadProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving product: {ex.Message}");
+        }
+
+        showModal = false;
+        selectedProduct = null;
+    }
+
+    private async Task DeleteProduct(Product product)
+    {
+        try
+        {
+            await using var dbContext = await DbProductContextFactory.CreateDbContextAsync();
+            
+            // Optional: Delete associated images if they're not used by other products
+            if (product.ImageIds?.Any() == true)
+            {
+                var imageDbContext = await DbImageContextFactory.CreateDbContextAsync();
+                foreach (var imageId in product.ImageIds)
+                {
+                    // Check if image is used by other products
+                    var isImageUsedElsewhere = await dbContext.Products
+                        .Where(p => p.Id != product.Id)
+                        .AnyAsync(p => p.ImageIds.Contains(imageId));
+
+                    if (!isImageUsedElsewhere)
+                    {
+                        var image = await imageDbContext.Images.FindAsync(imageId);
+                        if (image != null)
+                        {
+                            imageDbContext.Images.Remove(image);
+                        }
+                    }
+                }
+                await imageDbContext.SaveChangesAsync();
+            }
+
+            dbContext.Products.Remove(product);
+            await dbContext.SaveChangesAsync();
+            await LoadProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error deleting product: {ex.Message}");
+        }
+    }
+
+    private string GetColorForType(string type)
+    {
+        return type switch
+        {
+            "Chick" => "green",
+            "Chicken" => "blue",
+            "Feed" => "brown",
+            "Item" => "gray",
+            _ => "black"
+        };
+    }
+}

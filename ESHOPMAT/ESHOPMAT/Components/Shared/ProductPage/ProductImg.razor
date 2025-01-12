@@ -41,7 +41,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        ImageId = Page.Data[$"{Page.Name}:image"];
+        var x = Page.Data;
+        ImageId = Page.Data["Product:Image"];
         await LoadImageFromDatabase();
     }
 
@@ -71,7 +72,7 @@
             var imageData = new byte[file.Size];
             await stream.ReadAsync(imageData);
             var imageId = await SaveImageToDatabase(file.Name, imageData);
-            Page.SetValue("image", imageId.ToString());
+            Page.SetValue("Product:Image", imageId.ToString());
             ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(imageData)}";
         }
     }

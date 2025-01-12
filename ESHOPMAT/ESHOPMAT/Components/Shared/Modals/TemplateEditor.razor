@@ -1,0 +1,37 @@
+﻿@* @using Blazored.Modal
+@using Blazored.Modal.Services
+@using Blazored.TextEditor
+@using ESHOPMAT.Models
+
+<BlazoredModal>
+    <BlazoredModalHeader>Template Editor</BlazoredModalHeader>
+    <BlazoredModalBody>
+        <InputText @bind-Value="CurrentTemplate.Name" placeholder="Template Name" />
+        <BlazoredTextEditor @bind-Value="CurrentTemplate.HtmlContent" />
+    </BlazoredModalBody>
+    <BlazoredModalFooter>
+        <button @onclick="SaveTemplate">Save</button>
+        <button @onclick="Cancel">Cancel</button>
+    </BlazoredModalFooter>
+</BlazoredModal>
+
+@code {
+    [CascadingParameter] IModalService Modal { get; set; } = default!;
+
+    [Parameter] public EmailTemplate CurrentTemplate { get; set; } = new EmailTemplate();
+
+    private async Task SaveTemplate()
+    {
+        // Saving the template
+        var result = ModalResult.Ok(CurrentTemplate);
+        Modal.Close(result);
+    }
+
+    private void Cancel()
+    {
+        // Cancel and close the modal
+        var result = ModalResult.Cancel();
+        Modal.Close(result);
+    }
+}
+ *@

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ESHOPMAT.Migrations.PageDb
 {
     [DbContext(typeof(PageDbContext))]
-    [Migration("20241208150322_InitialCreate")]
+    [Migration("20250112160044_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />

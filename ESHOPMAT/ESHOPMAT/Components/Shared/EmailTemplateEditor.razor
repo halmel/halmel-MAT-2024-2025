@@ -1,0 +1,194 @@
+﻿@using Blazored.TextEditor
+@using ESHOPMAT.Models
+@inject EmailDbContext DbContext
+@inject NavigationManager Navigation
+
+<div class="template-container rounded">
+    <!-- Template Name -->
+    <h4 class="template-name">@currentTemplate.Name</h4>
+
+    <!-- Template List (visible when clicked) -->
+    <button class="template-list-toggle" @onclick="ToggleTemplateList">
+        @((templatesVisible ? "Hide Templates" : "Show Templates"))
+    </button>
+
+    <!-- Template List Dropdown -->
+    @if (templatesVisible)
+    {
+        <ul class="template-list">
+            @foreach (var template in templates)
+            {
+                <li @onclick="() => SelectTemplate(template)">
+                    @template.Name
+                </li>
+            }
+        </ul>
+    }
+
+    <!-- Subject Input -->
+    <InputText @bind-Value="currentTemplate.Subject" placeholder="Subject" class="subject-input" />
+
+    <!-- Blazored Text Editor -->
+    <BlazoredTextEditor @ref="BlazoredTextEditorRef">
+        <ToolbarContent>
+            <!-- Customize toolbar buttons -->
+            <button class="ql-bold">Bold</button>
+            <button class="ql-italic">Italic</button>
+            <button class="ql-underline">Underline</button>
+            <button class="ql-strike">Strike</button>
+            <select class="ql-color"></select>
+            <select class="ql-background"></select>
+            <button class="ql-list" value="ordered">Ordered List</button>
+            <button class="ql-list" value="bullet">Bullet List</button>
+            <button class="ql-link">Link</button>
+        </ToolbarContent>
+    </BlazoredTextEditor>
+
+    <!-- Save and Cancel Buttons -->
+    <div class="editor-actions">
+        <button @onclick="SaveTemplate">Save Changes</button>
+        <button @onclick="CancelEdit">Cancel</button>
+    </div>
+</div>
+
+@code {
+    private List<EmailTemplate> templates;
+    [Parameter]
+    public EmailTemplate currentTemplate { get; set; } = new EmailTemplate();
+    private bool templatesVisible = false;
+    private BlazoredTextEditor BlazoredTextEditorRef = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTemplates();
+        currentTemplate = new EmailTemplate();  // Default to new template
+    }
+
+    private async Task LoadTemplates()
+    {
+        templates = await DbContext.EmailTemplates.ToListAsync();
+    }
+
+    private void ToggleTemplateList()
+    {
+        templatesVisible = !templatesVisible;
+    }
+
+    private void SelectTemplate(EmailTemplate template)
+    {
+        currentTemplate = template;
+        BlazoredTextEditorRef.LoadHTMLContent(currentTemplate.HtmlContent); // Load the HTML content into the editor
+    }
+
+    private async Task SaveTemplate()
+    {
+        string editorContent = await BlazoredTextEditorRef.GetHTML();
+        currentTemplate.HtmlContent = editorContent;
+
+        if (currentTemplate.Id == 0)
+        {
+            DbContext.EmailTemplates.Add(currentTemplate);
+        }
+        else
+        {
+            DbContext.EmailTemplates.Update(currentTemplate);
+        }
+
+        await DbContext.SaveChangesAsync();
+    }
+    // Method to get the current HTML content from the editor
+    public async Task<string> GetCurrentHtmlContentAsync()
+    {
+        return await BlazoredTextEditorRef.GetHTML();
+    }
+
+    // Method to get the current subject of the template
+    public string GetCurrentSubject()
+    {
+        return currentTemplate.Subject;
+    }
+    private void CancelEdit()
+    {
+        currentTemplate = new EmailTemplate(); // Reset to a new template
+    }
+}
+<style>
+    <style >
+    .template-container {
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        padding: 20px;
+        margin: 10px 0;
+        background-color: #f9f9f9;
+    }
+
+    .template-name {
+        font-size: 20px;
+        font-weight: bold;
+    }
+
+    .template-list-toggle {
+        margin-top: 10px;
+        background-color: #007bff;
+        color: white;
+        padding: 5px 10px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+
+    .template-list {
+        list-style-type: none;
+        padding: 0;
+        margin-top: 10px;
+    }
+
+        .template-list li {
+            padding: 5px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            margin-bottom: 5px;
+        }
+
+            .template-list li:hover {
+                background-color: #e0e0e0;
+            }
+
+    .subject-input {
+        width: 100%;
+        margin-top: 10px;
+        padding: 5px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+    }
+
+    .editor-actions {
+        margin-top: 15px;
+        text-align: right;
+    }
+
+        .editor-actions button {
+            margin-left: 10px;
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+            .editor-actions button:hover {
+                background-color: #218838;
+            }
+
+            .editor-actions button:first-child {
+                background-color: #ffc107;
+            }
+
+                .editor-actions button:first-child:hover {
+                    background-color: #e0a800;
+                }
+</style>
+
+
+</style>

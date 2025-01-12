@@ -1,0 +1,39 @@
+﻿@code {
+    [Parameter]
+    public PageContent Page { get; set; }
+
+    [Parameter]
+    public bool IsEditing{ get; set; }
+
+    public string ProductTitle { get; set; }
+    public string ProductDescription { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Page?.Data != null)
+        {
+            Page.Data.TryGetValue("Product:Title", out var title);
+            Page.Data.TryGetValue("Product:Description", out var description);
+
+            ProductTitle = title ?? "Default Title"; // Fallback if title is not found
+            ProductDescription = description ?? "Default Description"; // Fallback if description is not found
+        }
+    }
+}
+
+<h2>@ProductTitle</h2>
+<p>@ProductDescription</p>
+
+<style>
+    h2 {
+        color: #333;
+        font-size: 24px;
+        margin-bottom: 10px;
+    }
+
+    p {
+        color: #666;
+        font-size: 16px;
+        line-height: 1.5;
+    }
+</style>

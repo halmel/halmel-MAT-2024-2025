@@ -1,0 +1,103 @@
+﻿@page "/admin/orders"
+@using ESHOPMAT.Models
+@inject EmailService EmailService
+@inject IDbContextFactory<OrderDbContext> DbContextFactory
+
+<h3>Orders</h3>
+
+@if (orders == null)
+{
+    <p>Loading...</p>
+}
+else if (!orders.Any())
+{
+    <p>No orders found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Address</th>
+                <th>Telephone Number</th>
+                <th>Order Date</th>
+                <th>Total Price</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var order in orders)
+            {
+                <tr>
+                    <td>@order.OrderId</td>
+                    <td>@order.Name</td>
+                    <td>@order.Address</td>
+                    <td>@order.TelephoneNumber</td>
+                    <td>@order.OrderDate.ToShortDateString()</td>
+                    <td>@order.CalculateTotal().ToString("C")</td>
+                    <td>
+                        <button @onclick="() => ToggleEmailEditor(order)">Send Email</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (isEmailEditorVisible)
+{
+    <div class="burger-menu">
+        <EmailTemplateEditor @ref="emailEditorRef" />
+        <button @onclick="SendEmailToOrderCustomer">Send Email</button>
+    </div>
+}
+
+@code {
+    private List<Order> orders;
+    private bool isEmailEditorVisible = false;
+    private Order currentOrder;
+    private EmailTemplateEditor emailEditorRef;  // Reference to the EmailEditor component
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var context = DbContextFactory.CreateDbContext();
+        orders = await context.Orders.Include(o => o.OrderItems).ToListAsync();
+    }
+
+    // Toggle the visibility of the email editor for a specific order
+    private void ToggleEmailEditor(Order order)
+    {
+        currentOrder = order;
+        isEmailEditorVisible = !isEmailEditorVisible;
+    }
+
+    // Function to send an email using the current editor content
+    private async Task SendEmailToOrderCustomer()
+    {
+        // Get the current email content and subject from the editor
+        string currentHtmlContent = await emailEditorRef.GetCurrentHtmlContentAsync();
+        string currentSubject = emailEditorRef.GetCurrentSubject();
+
+        // Create the EmailValues based on the current order
+        var emailValues = new EmailValues
+        {
+            ClientName = currentOrder.Name,
+            SentDate = DateTime.Now.ToString()
+        };
+
+        // Create a dummy EmailTemplate using the current state of the editor
+        var template = new EmailTemplate
+        {
+            Subject = currentSubject,
+            HtmlContent = currentHtmlContent
+        };
+
+        // Use the email service to send the email
+        await EmailService.SendEmailAsync(currentOrder.Address, template, emailValues);
+
+        // Optionally: display a success message or take any other action
+        isEmailEditorVisible = false;  // Close the email editor after sending
+    }
+}

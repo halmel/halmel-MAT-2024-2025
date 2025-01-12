@@ -1,8 +1,8 @@
 ﻿@page "/page-editor"
 @inject ESHOPMAT.Models.PageDbContext DbContext
-@inject ESHOPMAT.Models.PageDbContext DbContext2
+@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
 @inject NavigationManager Navigation
-
+@using Shared.Modals
 @if (Pages.Count == 0)
 {
     <p>No pages available. Please add a new page or edit the default page.</p>
@@ -10,7 +10,7 @@
 else
 {
     <h3>Editing Page: @Root.Name</h3>
-    <DynamicComponentRendering Page="Root" IsEditing="true"></DynamicComponentRendering>
+@*     <DynamicComponentRendering Page="Root" IsEditing="true"></DynamicComponentRendering> *@
 
     <h4>Main Component Data</h4>
     <table class="table">
@@ -77,6 +77,9 @@ else
         <button class="btn btn-secondary" @onclick="LoadPreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
         <button class="btn btn-secondary" @onclick="LoadNextPage" disabled="@(!HasNextPage)">Next</button>
     </div>
+
+    <ProductSelector OnProductSelected="HandleProductSelection" />
+
     @if (!IsEditingRoot)
     {
         <button @onclick="BackToRoot">Go Back</button>
@@ -84,6 +87,38 @@ else
 }
 
 @code {
+
+
+
+
+    private void HandleProductSelection(Product selectedProduct)
+    {
+        UpdateDataValue(Root, "Product:Id", selectedProduct.Id.ToString());
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     private bool IsEditingRoot = true;
     private PageContent EditingChild { get; set; }
     private int StorePageIndex = 0;
@@ -125,7 +160,7 @@ else
                 RowCount = 16,
                 ColCount = 16,
                 IsRoot = true
-            }, DbContext2);
+            }, DbContext);
 
         var nestedContainer = new PageSettings
             {
@@ -238,14 +273,11 @@ else
 
         Pages.Add(child);
         CurrentPageIndex = Pages.Count - 1;
-        IsEditingRoot = false; // Keep the editing state for child components
-                               // Optional: Set up further logic if needed to edit specific child data
+        IsEditingRoot = false; 
     }
     private void BackToRoot()
     {
         IsEditingRoot = true;
-        var x = Root;
-        Console.WriteLine( "aaaaaaaaaaa");
         Pages.Remove(Root);
         CurrentPageIndex = StorePageIndex;
     }

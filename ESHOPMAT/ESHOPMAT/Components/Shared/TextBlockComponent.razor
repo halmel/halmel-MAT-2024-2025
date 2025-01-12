@@ -1,23 +1,12 @@
-﻿<!-- Title Component -->
-<div>
+﻿<div class="text-block">
     @if (IsEditing)
     {
-        <input @bind="Title" placeholder="Enter title" />
-    }
-    else
-    {
-        <h1>@Title</h1>
-    }
-</div>
-
-<!-- TextContent Component -->
-<div>
-    @if (IsEditing)
-    {
+        <input type="text" @bind="Title" placeholder="Enter title" />
         <textarea @bind="TextContent" placeholder="Enter content"></textarea>
     }
     else
     {
+        <h1>@Title</h1>
         <p>@TextContent</p>
     }
 </div>
@@ -29,25 +18,21 @@
     [Parameter]
     public bool IsEditing { get; set; }
 
-    public string Name { get; set; }
-
-    public Dictionary<string, string> Data { get; set; }
-
-    protected override async Task OnInitializedAsync()
-    {
-        Name = Page.Name;
-        Data = Page.Data;
-    }
-
     private string Title
     {
-        get => Data.GetValueOrDefault(Name + ":title") ?? "Untitled";
-        set => Data[Name + ":title"] = value;
+        get => Page.Data.GetValueOrDefault($"{Page.Name}:title") ?? "Untitled";
+        set => Page.Data[$"{Page.Name}:title"] = value;
     }
 
     private string TextContent
     {
-        get => Data.GetValueOrDefault(Name + ":text") ?? "";
-        set => Data[Name + ":text"] = value;
+        get => Page.Data.GetValueOrDefault($"{Page.Name}:text") ?? "";
+        set => Page.Data[$"{Page.Name}:text"] = value;
     }
 }
+
+<style>
+.text-block {
+    margin-bottom: 20px;
+}
+</style>

@@ -1,0 +1,202 @@
+﻿@page "/shopping-cart"
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.EntityFrameworkCore.Metadata.Internal
+@using SendGrid.Helpers.Mail
+@inject ProtectedSessionStorage ProtectedSessionStore
+
+<h2>Shopping Cart</h2>
+
+@if (CartItems.Count == 0)
+{
+    <p>Your cart is empty.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th>Total</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in CartItems)
+            {
+                <tr>
+                    <td>@item.Name</td>
+                    <td>@item.Price.ToString("C")</td>
+                    <td>
+                        <div class="counter-container">
+                            <button class="counter-button" @onclick="() => Decrement(item)">-</button>
+                            <div class="counter-value">@item.Quantity</div>
+                            <button class="counter-button" @onclick="() => Increment(item)">+</button>
+                        </div>
+                    </td>
+                    <td>@((item.Price * item.Quantity).ToString("C"))</td>
+                    <td><button class="remove-button" @onclick="() => RemoveFromCart(item)">Remove</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div>Total: @TotalCost.ToString("C")</div>
+
+    <h3>Contact Information</h3>
+    <form @onsubmit="SubmitOrder">
+        <label for="name">Name:</label>
+        <input type="text" id="name" @bind-value="ContactInfo.Name" required />
+
+        <label for="email">Email:</label>
+        <input type="email" id="email" @bind-value="ContactInfo.Email" required />
+
+        <label for="telephone">Telephone:</label>
+        <input type="tel" id="telephone" @bind-value="ContactInfo.TelephoneNumber" required />
+
+        <button type="submit" class="order-button">Submit Order</button>
+    </form>
+}
+
+@code {
+
+    [Inject]
+    private IDbContextFactory<OrderDbContext> DbProductContextFactory { get; set; }
+
+    private List<OrderItem> CartItems { get; set; } = new List<OrderItem>();
+    private decimal TotalCost => CalculateTotal();
+    private ContactInformation ContactInfo { get; set; } = new ContactInformation();
+
+    private bool isRendered = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var result = await ProtectedSessionStore.GetAsync<List<OrderItem>>("cart");
+            CartItems = result.Success ? result.Value ?? new List<OrderItem>() : new List<OrderItem>();
+            isRendered = true;
+            StateHasChanged();
+        }
+    }
+
+    private void Increment(OrderItem item)
+    {
+        item.Quantity++;
+        UpdateTotalCost();
+    }
+
+    private void Decrement(OrderItem item)
+    {
+        if (item.Quantity > 1)
+        {
+            item.Quantity--;
+        }
+        else
+        {
+            CartItems.Remove(item);
+        }
+        UpdateTotalCost();
+    }
+
+    private decimal CalculateTotal()
+    {
+        decimal total = 0;
+        foreach (var item in CartItems)
+        {
+            total += item.Price * item.Quantity;
+        }
+        return total;
+    }
+
+    private void RemoveFromCart(OrderItem item)
+    {
+        CartItems.Remove(item);
+        UpdateTotalCost();
+    }
+
+    private async Task SubmitOrder()
+    {
+        var ProductDb = DbProductContextFactory.CreateDbContext();
+        var order = new Order
+            {
+                Name = ContactInfo.Name,
+                EmailAddress = new EmailAddress(ContactInfo.Email),
+                TelephoneNumber = ContactInfo.TelephoneNumber,
+                OrderDate = DateTime.Now,
+                OrderItems = CartItems.ToList()
+            };
+
+        ProductDb.Orders.Add(order);
+        await ProductDb.SaveChangesAsync();
+
+        // Clear the cart
+        await ProtectedSessionStore.DeleteAsync("cart");
+
+        // Navigation.NavigateTo("/order-successful", true);
+    }
+
+    private void UpdateTotalCost()
+    {
+        StateHasChanged();
+    }
+
+    private class ContactInformation
+    {
+        public string Name { get; set; }
+        public string Email { get; set; }
+        public string TelephoneNumber { get; set; }
+    }
+}
+
+<style>
+    .counter-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #f0f0f0;
+        border-radius: 25px;
+        padding: 5px 15px;
+        width: 120px;
+    }
+
+    .counter-button {
+        background-color: #e0e0e0;
+        border: none;
+        color: #333;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        .counter-button:hover {
+            background-color: #d0d0d0;
+        }
+
+    .counter-value {
+        font-size: 16px;
+        font-weight: bold;
+        text-align: center;
+        width: 40px;
+    }
+
+    .remove-button {
+        background-color: #f44336;
+        color: white;
+        border: none;
+        padding: 5px 10px;
+        cursor: pointer;
+        border-radius: 5px;
+    }
+
+        .remove-button:hover {
+            background-color: #d32f2f;
+        }
+</style>

@@ -1,0 +1,54 @@
+﻿@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
+
+<select @bind="SelectedProductId">
+    <option value="0">No product</option>
+    @foreach (var product in Products)
+    {
+        <option value="@product.Id">@product.Name</option>
+    }
+</select>
+
+@code {
+    [Parameter] public EventCallback<Product> OnProductSelected { get; set; }
+
+    private int _selectedProductId;
+    private int SelectedProductId
+    {
+        get => _selectedProductId;
+        set
+        {
+            if (_selectedProductId != value)
+            {
+                _selectedProductId = value;
+                _ = HandleProductSelection(value); // Fire and forget (ensure proper exception handling)
+            }
+        }
+    }
+
+    private List<Product> Products = new List<Product>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        using (var context = DbProductContextFactory.CreateDbContext())
+        {
+            Products = await context.Products.ToListAsync();
+        }
+    }
+
+    private async Task HandleProductSelection(int productId)
+    {
+        Product selectedProduct = null;
+        if (productId != 0)
+        {
+            using (var context = DbProductContextFactory.CreateDbContext())
+            {
+                selectedProduct = await context.Products.FirstOrDefaultAsync(p => p.Id == productId);
+            }
+        }
+
+        if (OnProductSelected.HasDelegate)
+        {
+            await OnProductSelected.InvokeAsync(selectedProduct);
+        }
+    }
+}

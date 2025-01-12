@@ -1,0 +1,175 @@
+﻿<div class="product-page">
+    <div class="content-section">
+        @if (TitleDescriptionPage != null)
+        {
+            <DynamicComponentRendering Page="@TitleDescriptionPage" IsEditing=@IsEditing IsRoot=false />
+        }
+
+        @if (ImagePage != null)
+        {
+            <DynamicComponentRendering Page="@ImagePage" IsEditing=@IsEditing IsRoot=false />
+        }
+    </div>
+
+    @if (OrderingPage != null)
+    {
+        <DynamicComponentRendering Page="@OrderingPage" IsEditing=@IsEditing IsRoot=false  />
+    }
+
+    else if (product == null || product.Id == 0)
+    {
+        <div class="error-message">No product linked. Please link a product.</div>
+    }
+</div>
+
+<style>
+    .product-page {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+    }
+
+    .content-section {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+        max-width: 800px;
+    }
+
+    @@media (max-width: 768px) {
+        .content-section
+
+    {
+        flex-direction: column;
+    }
+
+    }
+
+    .error-message {
+        color: red;
+        margin-top: 20px;
+    }
+</style>
+
+@code {
+    [Inject]
+    private IDbContextFactory<ProductDbContext> DbProductContextFactory { get; set; }
+    [Inject]
+    private IDbContextFactory<PageDbContext> DbPageContextFactory { get; set; }
+    [Parameter]
+    public PageContent Page { get; set; }
+
+    [Parameter]
+    public bool IsEditing { get; set; }
+
+    private Product product;
+    private int SelectedProductId;
+
+    private PageContent TitleDescriptionPage;
+    private PageContent ImagePage;
+    private PageContent OrderingPage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await InitializeProductPage();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Detect changes in parameters
+        if (Page != null && Page.Data.ContainsKey("Product:Id"))
+        {
+            int newProductId = int.Parse(Page.Data["Product:Id"]);
+            if (SelectedProductId != newProductId)
+            {
+                SelectedProductId = newProductId;
+                await InitializeProductPage();
+            }
+        }
+    }
+
+    private async Task InitializeProductPage()
+    {
+        if (SelectedProductId > 0)
+        {
+            product = await FetchProductById(SelectedProductId);
+
+            if (product != null)
+            {
+                CreateChildComponents();
+            }
+            else
+            {
+                ClearChildComponents();
+            }
+        }
+        else
+        {
+            ClearChildComponents();
+        }
+    }
+
+    private async Task<Product> FetchProductById(int productId)
+    {
+        using var context = DbProductContextFactory.CreateDbContext();
+        return await context.Products.FindAsync(productId);
+    }
+
+    private void CreateChildComponents()
+    {
+        // Ensure TitleDescriptionPage is created or updated
+        TitleDescriptionPage = Page.GetChildByName("TitleDescription")
+            ?? Page.AddChild(new PageSettings
+                {
+                    Name = "TitleDescription",
+                    Type = ComponentType.TextBlock,
+                    RowCount = 1,
+                    ColCount = 1,
+                    Row = 0,
+                    Col = 0,
+                    RowSpan = 1,
+                    ColSpan = 2
+                });
+        TitleDescriptionPage.SetValue("title", product.Name);
+        TitleDescriptionPage.SetValue("text", product.Description);
+
+        // Ensure ImagePage is created or updated
+        ImagePage = Page.GetChildByName("Image")
+            ?? Page.AddChild(new PageSettings
+                {
+                    Name = "Image",
+                    Type = ComponentType.Image,
+                    RowCount = 1,
+                    ColCount = 1,
+                    Row = 0,
+                    Col = 2,
+                    RowSpan = 1,
+                    ColSpan = 1
+                });
+        ImagePage.SetValue("image", product.ImageIds.FirstOrDefault().ToString() ?? "");
+
+        // Ensure OrderingPage is created or updated
+        OrderingPage = Page.GetChildByName("Ordering")
+            ?? Page.AddChild(new PageSettings
+                {
+                    Name = "Ordering",
+                    Type = ComponentType.OrderingBar,
+                    RowCount = 1,
+                    ColCount = 1,
+                    Row = 1,
+                    Col = 0,
+                    RowSpan = 1,
+                    ColSpan = 3
+                });
+        OrderingPage.SetValue("price", product.Price.ToString());
+        OrderingPage.SetValue("amount", product.Amount.ToString());
+    }
+
+    private void ClearChildComponents()
+    {
+        TitleDescriptionPage = null;
+        ImagePage = null;
+        OrderingPage = null;
+    }
+}

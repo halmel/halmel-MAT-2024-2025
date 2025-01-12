@@ -1,0 +1,154 @@
+﻿@page "/email-templates"
+@using Blazored.TextEditor
+@using ESHOPMAT.Models
+@inject EmailDbContext DbContext
+@inject NavigationManager Navigation
+
+<h3>Email Templates</h3>
+<button @onclick="OpenNewTemplateEditor">New Template</button>
+
+<!-- Template Editor Section -->
+@if (currentTemplate != null)
+{
+    <div class="template-editor">
+        <h4>@(currentTemplate.Id == 0 ? "New Template" : "Edit Template")</h4>
+
+        <!-- Template Name Input -->
+        <InputText @bind-Value="currentTemplate.Name" placeholder="Template Name" />
+
+        <!-- Subject Input (new) -->
+        <InputText @bind-Value="currentTemplate.Subject" placeholder="Subject" />
+
+        <!-- Blazored Text Editor with methods for getting and setting content -->
+        <BlazoredTextEditor @ref="BlazoredTextEditorRef">
+            <ToolbarContent>
+                <!-- Customize toolbar buttons here -->
+                <button class="ql-bold">Bold</button>
+                <button class="ql-italic">Italic</button>
+                <button class="ql-underline">Underline</button>
+                <button class="ql-strike">Strike</button>
+                <select class="ql-color"></select>
+                <select class="ql-background"></select>
+                <button class="ql-list" value="ordered">Ordered List</button>
+                <button class="ql-list" value="bullet">Bullet List</button>
+                <button class="ql-link">Link</button>
+            </ToolbarContent>
+        </BlazoredTextEditor>
+
+        <div>
+            <button @onclick="SaveTemplate">Save</button>
+            <button @onclick="CancelEdit">Cancel</button>
+        </div>
+    </div>
+}
+
+<!-- Existing Templates List -->
+@if (templates != null && templates.Count > 0)
+{
+    <div>
+        <p>Currently Editing: @currentTemplate.Name</p>
+        <button @onclick="PreviousTemplate" disabled="@(!hasPrevious)">Previous</button>
+        <button @onclick="NextTemplate" disabled="@(!hasNext)">Next</button>
+
+        <ul>
+            @foreach (var template in templates)
+            {
+                <li>
+                    <button @onclick="() => EditTemplate(template)">Edit</button>
+                    @template.Name
+                </li>
+            }
+        </ul>
+    </div>
+}
+else
+{
+    <p>No templates available. Click "New Template" to create one.</p>
+}
+
+@code {
+    private List<EmailTemplate> templates;
+    private EmailTemplate currentTemplate = new EmailTemplate();  // Initialize to avoid null issues.
+    private int currentIndex = 0;
+    // Reference to BlazoredTextEditor component
+    private BlazoredTextEditor BlazoredTextEditorRef = default!;
+
+    private bool hasPrevious => currentIndex > 0;
+    private bool hasNext => currentIndex < templates.Count - 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTemplates();
+
+        if (templates.Any())
+        {
+            // Automatically load the first template if available
+            currentTemplate = templates[0];
+            BlazoredTextEditorRef.LoadHTMLContent(currentTemplate.HtmlContent); // Load the content into the editor
+        }
+    }
+
+    private async Task LoadTemplates()
+    {
+        templates = await DbContext.EmailTemplates.ToListAsync();
+    }
+
+    private void EditTemplate(EmailTemplate template)
+    {
+        currentTemplate = template;
+        // Load the HTML content into the BlazoredTextEditor when editing
+        BlazoredTextEditorRef.LoadHTMLContent(currentTemplate.HtmlContent);
+    }
+
+    private void PreviousTemplate()
+    {
+        if (hasPrevious)
+        {
+            currentTemplate = templates[--currentIndex];
+            // Load the HTML content when switching templates
+            BlazoredTextEditorRef.LoadHTMLContent(currentTemplate.HtmlContent);
+        }
+    }
+
+    private void NextTemplate()
+    {
+        if (hasNext)
+        {
+            currentTemplate = templates[++currentIndex];
+            // Load the HTML content when switching templates
+            BlazoredTextEditorRef.LoadHTMLContent(currentTemplate.HtmlContent);
+        }
+    }
+
+    private void OpenNewTemplateEditor()
+    {
+        currentTemplate = new EmailTemplate();  // Start a new template
+                                                // No need to set isEditing since it's always true now
+        BlazoredTextEditorRef.LoadHTMLContent(currentTemplate.HtmlContent);  // Load an empty content
+    }
+
+    private async Task SaveTemplate()
+    {
+        // Retrieve HTML content from the editor using GetHTML
+        string editorContent = await BlazoredTextEditorRef.GetHTML();
+
+        currentTemplate.HtmlContent = editorContent;
+
+        if (currentTemplate.Id == 0) // If it's a new template
+        {
+            DbContext.EmailTemplates.Add(currentTemplate);
+        }
+        else // If we're editing an existing template
+        {
+            DbContext.EmailTemplates.Update(currentTemplate);
+        }
+
+        await DbContext.SaveChangesAsync();
+        await LoadTemplates();  // Reload templates after saving
+    }
+
+    private void CancelEdit()
+    {
+        currentTemplate = new EmailTemplate(); // Reset the current template
+    }
+}

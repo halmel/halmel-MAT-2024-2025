@@ -1,0 +1,104 @@
+﻿@page "/product/{ProductId:int}"
+@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
+@inject IDbContextFactory<PageDbContext> DbPageContextFactory
+@using ESHOPMAT.Models
+@using Microsoft.AspNetCore.Components
+
+@if (RootPageContent == null)
+{
+    <p>Loading...</p> <!-- This is your simple loading page -->
+}
+else
+{
+    <DynamicComponentRendering Page="RootPageContent" IsEditing="false"></DynamicComponentRendering>
+}
+
+@code {
+    [Parameter]
+    public int ProductId { get; set; }
+
+    private Product? Product { get; set; }
+    private PageContent? RootPageContent { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        using var productContext = await DbProductContextFactory.CreateDbContextAsync();
+        Product = await productContext.Products.FindAsync(ProductId);
+
+        if (Product == null)
+        {
+            // Handle product not found
+            RootPageContent = null;
+            return;
+        }
+
+        using var pageContext = await DbPageContextFactory.CreateDbContextAsync();
+        RootPageContent = await GeneratePageTemplate(Product.Type, pageContext);
+
+        if (RootPageContent != null)
+        {
+            RootPageContent.SetProductData(Product);
+        }
+    }
+
+    private async Task<PageContent> GeneratePageTemplate(ProductType productType, PageDbContext context)
+    {
+        var templateName = $"{productType}Template";
+        var existingTemplate = await context.Pages.FirstOrDefaultAsync(p => p.Name == templateName);
+
+        if (existingTemplate != null)
+        {
+            return existingTemplate;
+        }
+
+        var newTemplate = CreateDefaultPageTemplate(templateName, context);
+        await context.Pages.AddAsync(newTemplate);
+        await context.SaveChangesAsync();
+
+        return newTemplate;
+    }
+
+    private PageContent CreateDefaultPageTemplate(string templateName, PageDbContext context)
+    {
+        var page = new PageContent(new PageSettings
+            {
+                Name = templateName,
+                Type = ComponentType.Container,
+                RowCount = 16,
+                ColCount = 16,
+                IsRoot = true
+            }, context);
+
+        page.AddChild(new PageSettings
+            {
+                Name = "TitleDescription",
+                Type = ComponentType.ProductTitleDescription,
+                Row = 1,
+                Col = 1,
+                RowSpan = 4,
+                ColSpan = 4
+            });
+
+        page.AddChild(new PageSettings
+            {
+                Name = "ProductImage",
+                Type = ComponentType.ProductImage,
+                Row = 1,
+                Col = 5,
+                RowSpan = 4,
+                ColSpan = 4
+            });
+
+        page.AddChild(new PageSettings
+            {
+                Name = "OrderingBar",
+                Type = ComponentType.OrderingBar,
+                Row = 5,
+                Col = 1,
+                RowSpan = 2,
+                ColSpan = 8
+            });
+
+        return page;
+    }
+}

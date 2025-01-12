@@ -1,4 +1,5 @@
 ﻿@using Microsoft.JSInterop
+@using ProductPage;
 @inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
 
@@ -419,6 +420,10 @@
             "Counter" => typeof(CounterComponent),
             "TextBlock" => typeof(TextBlockComponent),
             "Image" => typeof(ImageComponent),
+            // "ProductPage" => typeof(ProductPageComponent),
+            "OrderingBar" => typeof(OrderingBarComponent),
+            "ProductTitleDescription" => typeof(ProductTitleDescriptionComponent),
+            "ProductImage" => typeof(ProductImg),
             _ => null
         };
     }
@@ -445,6 +450,26 @@
         {
             parameters[nameof(ImageComponent.Page)] = Page;
             parameters[nameof(ImageComponent.IsEditing)] = IsEditing;
+        }
+        // else if (Page.Type == "ProductPage")
+        // {
+        //     parameters[nameof(ProductPageComponent.Page)] = Page;
+        //     parameters[nameof(ProductPageComponent.IsEditing)] = IsEditing;
+        // }
+        else if (Page.Type == "OrderingBar")
+        {
+            parameters[nameof(OrderingBarComponent.Page)] = Page;
+            parameters[nameof(OrderingBarComponent.IsEditing)] = IsEditing;
+        }
+        else if (Page.Type == "ProductTitleDescription")
+        {
+            parameters[nameof(ProductTitleDescriptionComponent.Page)] = Page;
+            parameters[nameof(ProductTitleDescriptionComponent.IsEditing)] = IsEditing;
+        }
+        else if (Page.Type == "ProductImage")
+        {
+            parameters[nameof(ProductImg.Page)] = Page;
+            parameters[nameof(ProductImg.IsEditing)] = IsEditing;
         }
         return parameters;
     }

@@ -1,0 +1,170 @@
+﻿@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedSessionStorage ProtectedSessionStore
+
+<div class="ordering-bar">
+    <div class="price-section">
+        <span>Price: @ProductPrice.ToString("C")</span>
+    </div>
+    <div class="quantity-section">
+        <button class="counter-button" @onclick="Decrement">-</button>
+        <div class="counter-value">@Count</div>
+        <button class="counter-button" @onclick="Increment">+</button>
+    </div>
+    <div class="order-section">
+        <button class="order-button" disabled="@IsOrderButtonDisabled" @onclick="AddToCart">Order</button>
+    </div>
+</div>
+
+<style>
+    .ordering-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #f0f0f0;
+        border-radius: 8px;
+        padding: 10px;
+        margin-top: 20px;
+    }
+
+    .price-section {
+        font-size: 16px;
+        font-weight: bold;
+    }
+
+    .quantity-section {
+        display: flex;
+        align-items: center;
+    }
+
+    .counter-container {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background-color: #e0e0e0;
+        border-radius: 25px;
+        padding: 5px 15px;
+        width: 120px;
+    }
+
+    .counter-button {
+        background-color: #d0d0d0;
+        border: none;
+        color: #333;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        .counter-button:hover {
+            background-color: #c0c0c0;
+        }
+
+    .counter-value {
+        font-size: 16px;
+        font-weight: bold;
+        text-align: center;
+        width: 40px;
+    }
+
+    .order-section {
+        margin-left: 20px;
+    }
+
+    .order-button {
+        background-color: #28a745;
+        border: none;
+        color: white;
+        padding: 10px 20px;
+        font-size: 16px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+        .order-button:hover {
+            background-color: #218838;
+        }
+</style>
+
+@code {
+    [Parameter]
+    public PageContent Page { get; set; }
+
+    [Parameter]
+    public bool IsEditing { get; set; }
+
+    [Inject]
+    private IDbContextFactory<ProductDbContext> DbProductContextFactory { get; set; }
+
+    private int Count { get; set; } = 0;
+
+    private decimal ProductPrice { get; set; } = 0m;
+
+    private int ProductId { get; set; }
+
+    private Product _Product { get; set; }
+
+    private bool IsOrderButtonDisabled => Count <= 0;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Reinitialize on parameter changes
+        if (Page?.Data?.TryGetValue("Product:Id", out var productIdStr) == true)
+        {
+            using var context = DbProductContextFactory.CreateDbContext();
+            if (int.TryParse(productIdStr, out var productId))
+            {
+                _Product = await context.Products.FindAsync(productId);
+                if (_Product != null)
+                {
+                    ProductId = _Product.Id;
+                    ProductPrice = _Product.Price;
+                }
+            }
+        }
+    }
+
+    private void Increment()
+    {
+        Count++;
+        StateHasChanged(); // Trigger UI update
+    }
+
+    private void Decrement()
+    {
+        if (Count > 0)
+        {
+            Count--;
+            StateHasChanged(); // Trigger UI update
+        }
+    }
+
+    private async Task AddToCart()
+    {
+        var result = await ProtectedSessionStore.GetAsync<List<OrderItem>>("cart");
+        var cartItems = result.Success ? result.Value ?? new List<OrderItem>() : new List<OrderItem>();
+
+        var existingItem = cartItems.FirstOrDefault(item => item.ProductId == ProductId);
+
+        if (existingItem != null)
+        {
+            existingItem.Quantity += Count;
+        }
+        else
+        {
+            cartItems.Add(new OrderItem(_Product, Count));
+        }
+
+        await ProtectedSessionStore.SetAsync("cart", cartItems);
+
+        // Reset the count after adding to the cart
+        Count = 0;
+        StateHasChanged(); // Update UI after cart operation
+    }
+}

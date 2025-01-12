@@ -1,0 +1,60 @@
+﻿@page "/test-db"
+@inject IDbContextFactory<PageDbContext> PageDbContextFactory
+@inject IDbContextFactory<ProductDbContext> ProductDbContextFactory
+@inject IDbContextFactory<ImageDbContext> ImageDbContextFactory
+@inject IDbContextFactory<OrderDbContext> OrderDbContextFactory
+@inject IDbContextFactory<EmailDbContext> EmailDbContextFactory
+
+<h3>Database Testing Page</h3>
+
+<button @onclick="ClearPageDbContext">Clear Page Database</button>
+<button @onclick="ClearProductDbContext">Clear Product Database</button>
+<button @onclick="ClearImageDbContext">Clear Image Database</button>
+<button @onclick="ClearOrderDbContext">Clear Order Database</button>
+<button @onclick="ClearEmailDbContext">Clear Email Database</button>
+
+<p>@statusMessage</p>
+
+@code {
+    private string statusMessage;
+
+    private async Task ClearPageDbContext()
+    {
+        using var context = PageDbContextFactory.CreateDbContext();
+        context.RemoveRange(context.Pages); // Assuming there's a DbSet<Pages> in PageDbContext
+        await context.SaveChangesAsync();
+        statusMessage = "Page database cleared.";
+    }
+
+    private async Task ClearProductDbContext()
+    {
+        using var context = ProductDbContextFactory.CreateDbContext();
+        context.RemoveRange(context.Products); // Assuming there's a DbSet<Products> in ProductDbContext
+        await context.SaveChangesAsync();
+        statusMessage = "Product database cleared.";
+    }
+
+    private async Task ClearImageDbContext()
+    {
+        using var context = ImageDbContextFactory.CreateDbContext();
+        context.RemoveRange(context.Images); // Assuming there's a DbSet<Images> in ImageDbContext
+        await context.SaveChangesAsync();
+        statusMessage = "Image database cleared.";
+    }
+
+    private async Task ClearOrderDbContext()
+    {
+        using var context = OrderDbContextFactory.CreateDbContext();
+        context.RemoveRange(context.Orders); // Assuming there's a DbSet<Orders> in OrderDbContext
+        await context.SaveChangesAsync();
+        statusMessage = "Order database cleared.";
+    }
+
+    private async Task ClearEmailDbContext()
+    {
+        using var context = EmailDbContextFactory.CreateDbContext();
+        context.RemoveRange(context.EmailTemplates); // Assuming there's a DbSet<EmailTemplates> in EmailDbContext
+        await context.SaveChangesAsync();
+        statusMessage = "Email database cleared.";
+    }
+}
