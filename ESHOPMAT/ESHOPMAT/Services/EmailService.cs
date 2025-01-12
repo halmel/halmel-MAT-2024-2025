@@ -9,7 +9,7 @@ public class EmailService
 
     public EmailService()
     {
-        _sendGridApiKey = "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";
+        _sendGridApiKey = "a";
     }
 
     public async Task SendEmailAsync(string toEmail, string subject, string htmlContent, string plainTextContent)
