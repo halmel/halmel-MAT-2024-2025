@@ -1,37 +1,131 @@
-﻿@using Microsoft.AspNetCore.Components
+﻿@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
+@inject NavigationManager NavigationManager
 @page "/productlist"
 
-@code {
-    [Parameter]
-    public List<Product> Products { get; set; }  // The list of products to display
-
-    [Parameter]
-    public bool IsEditing { get; set; }          // For future usage: allows editing if needed
-
-    private void RedirectToProduct(int productId)
-    {
-        // Logic to navigate to a product detail page, for now just logging
-        // Navigation logic can be added here using NavigationManager
-        NavigationManager.NavigateTo($"/product/{productId}");
-    }
+@if (Products == null || Products.Count == 0)
+{
+    <p>No products available.</p>
+}
+else
+{
+    <div class="product-list">
+        @foreach (var product in Products)
+        {
+            <ProductBlock Product="product" OnProductClick="RedirectToProduct" />
+        }
+    </div>
 }
 
-<div class="product-list">
-    @foreach (var product in Products)
-    {
-        <ProductBlock Product="product" OnProductClick="RedirectToProduct" />
-    }
-</div>
+@if (IsEditing)
+{
+    <div class="edit-section">
+        <label>Product IDs (comma separated):</label>
+        <textarea @bind="ProductIdListString"></textarea>
+        <button class="btn btn-primary" @onclick="SaveProductList">Save Product List</button>
+    </div>
+}
 
 <style>
+    /* Flexbox layout for the product list */
     .product-list {
         display: flex;
         flex-wrap: wrap;
         justify-content: space-around;
         gap: 20px;
+        height: fit-content;
+    }
+
+        /* Dynamic product block size */
+        .product-list .product-block {
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ddd;
+            padding: 15px;
+            box-sizing: border-box;
+            overflow: hidden;
+            flex: 1 1 auto; /* Allow blocks to grow/shrink as needed */
+            max-width: 300px; /* Optional: limit the max width */
+            width: 100%;
+        }
+
+    /* Ensure the image fits the container but retains aspect ratio */
+    .product-block img {
+        width: 100%; /* Make the image take up the width of the container */
+        height: auto; /* Let the image height adjust automatically */
+        object-fit: contain; /* Ensure the image doesn’t overflow and keeps its aspect ratio */
+    }
+
+    /* Edit section styling */
+    .edit-section {
+        margin-top: 20px;
+    }
+
+    textarea {
+        width: 100%;
+        height: 100px;
+        margin-bottom: 10px;
+    }
+
+    .btn-primary {
+        margin-top: 10px;
     }
 </style>
 
 @code {
-    [Inject] NavigationManager NavigationManager { get; set; }
+    [Parameter]
+    public PageContent Page { get; set; }
+
+    [Parameter]
+    public bool IsEditing { get; set; }
+
+    private List<Product> Products { get; set; } = new();
+    private string ProductIdListString { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductList();
+    }
+
+    private async Task LoadProductList()
+    {
+        try
+        {
+            // Get the list of product IDs from the Page.Data dictionary
+            if (Page.Data.TryGetValue($"{Page.Name}:ProductList", out string? productListString))
+            {
+                ProductIdListString = productListString;
+                var productIds = productListString.Split(",", StringSplitOptions.RemoveEmptyEntries)
+                                                  .Select(id => int.Parse(id.Trim())).ToList();
+
+                using var dbContext = await DbProductContextFactory.CreateDbContextAsync();
+                Products = await dbContext.Products.Where(p => productIds.Contains(p.Id)).ToListAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading product list: {ex.Message}");
+        }
+    }
+
+    private async Task SaveProductList()
+    {
+        try
+        {
+            // Update the product list in the Page.Data dictionary
+            Page.SetValue($"ProductList", ProductIdListString);
+
+            // Reload the product list based on the updated IDs
+            await LoadProductList();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error saving product list: {ex.Message}");
+        }
+    }
+
+    private void RedirectToProduct(int productId)
+    {
+        // Logic to navigate to a product detail page, for now just logging
+        NavigationManager.NavigateTo($"/product/{productId}");
+    }
 }

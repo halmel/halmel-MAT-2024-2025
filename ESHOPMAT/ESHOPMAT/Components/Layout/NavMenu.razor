@@ -1,6 +1,6 @@
 ﻿@implements IDisposable
-
 @inject NavigationManager NavigationManager
+@inject IDbContextFactory<ProductDbContext> DbContextFactory
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -12,65 +12,54 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
+        <!-- Static Menu Items -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <NavLink class="nav-link" href="">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+        <!-- Dynamic Product Menu Grouped by ProductType -->
+        @if (groupedProducts != null)
+        {
+            @foreach (var productGroup in groupedProducts)
+            {
+                <div class="nav-item px-3">
+                    <button class="btn btn-link" @onclick="() => ToggleProductType(productGroup.Key)">
+                        <span class="bi bi-chevron-right" aria-hidden="true"></span> @productGroup.Key
+                    </button>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="page-editor">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestEditor
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="page-viewer">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestViewrer
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="test-db">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestDbDeleter
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/email-templates">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Test email template edtor
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/admin/products">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Product admiomn
-            </NavLink>
-        </div> 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/admin/Orders">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Product Order
-            </NavLink>
-        </div>
+                    @if (expandedTypes.Contains(productGroup.Key))
+                    {
+                        <ul class="nav flex-column ml-3">
+                            @foreach (var product in productGroup.Value)
+                            {
+                                <li>
+                                    <NavLink class="nav-link" href="@($"/product/{product.Id}")">
+                                        @product.Name
+                                    </NavLink>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <p>Loading products...</p>
+        }
+
+    
+
+        <!-- Shopping Cart Link -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="/shopping-cart">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Kart
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth">
-                <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
-            </NavLink>
-        </div>
-
+        <!-- Auth Links -->
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
@@ -101,17 +90,103 @@
                 </div>
             </NotAuthorized>
         </AuthorizeView>
+        <!-- Testing Links Section -->
+        <div class="nav-item px-3">
+            <button class="btn btn-link" @onclick="() => ToggleTestingLinks()">
+                <span class="bi bi-chevron-right" aria-hidden="true"></span> Testing Links
+            </button>
+
+            @if (showTestingLinks)
+            {
+                <ul class="nav flex-column ml-3">
+                    <li>
+                        <NavLink class="nav-link" href="counter">
+                            <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="nav-link" href="weather">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="nav-link" href="page-editor">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestEditor
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="nav-link" href="page-viewer">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestViewer
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="nav-link" href="test-db">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestDbDeleter
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="nav-link" href="/email-templates">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestEmailEditor
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="nav-link" href="/admin/products">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Product Admin
+                        </NavLink>
+                    </li>
+                    <li>
+                        <NavLink class="nav-link" href="/admin/orders">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Product Orders
+                        </NavLink>
+                    </li>
+                </ul>
+            }
+            </div>
     </nav>
 </div>
 
 @code {
-    private string? currentUrl;
+    private Dictionary<ProductType, List<Product>>? groupedProducts; // Group products by ProductType
+    private HashSet<ProductType> expandedTypes = new(); // Track expanded product types
+    private bool showTestingLinks = false; // Track visibility of Testing Links
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+        await LoadProducts();
         NavigationManager.LocationChanged += OnLocationChanged;
     }
+
+    private async Task LoadProducts()
+    {
+        using var context = DbContextFactory.CreateDbContext();
+        var products = await context.Products.ToListAsync();
+
+        // Group products by their ProductType
+        groupedProducts = products
+            .Where(p => !p.Name.Contains("testing", StringComparison.OrdinalIgnoreCase)) // Filter out testing products
+            .GroupBy(p => p.Type)
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private void ToggleProductType(ProductType type)
+    {
+        if (expandedTypes.Contains(type))
+        {
+            expandedTypes.Remove(type);
+        }
+        else
+        {
+            expandedTypes.Add(type);
+        }
+    }
+
+    private void ToggleTestingLinks()
+    {
+        showTestingLinks = !showTestingLinks;
+    }
+
+    private string? currentUrl;
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
@@ -124,4 +199,3 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

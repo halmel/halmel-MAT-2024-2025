@@ -4,7 +4,7 @@
 @implements IAsyncDisposable
 
 <div @ref="wrapperRef"
-     class="@(IsEditing && !IsRoot ? "editable-wrapper" : "")"
+     class="@(IsEditing && !IsRoot ? "editable-wrapper" : ""), AllWrap"
      style="@WrapperStyle; @GetPositionStyle()"
      @onclick:stopPropagation="true"
      @onclick="HandleWrapperClick">
@@ -29,7 +29,9 @@
         min-width: 50px;
         user-select: none;
     }
-
+    .AllWrap{
+        height: fit-content;
+    }
     .move-handle {
         position: absolute;
         top: 0;
@@ -424,6 +426,7 @@
             "OrderingBar" => typeof(OrderingBarComponent),
             "ProductTitleDescription" => typeof(ProductTitleDescriptionComponent),
             "ProductImage" => typeof(ProductImg),
+            "ProductList" => typeof(ProductList),
             _ => null
         };
     }
@@ -470,6 +473,11 @@
         {
             parameters[nameof(ProductImg.Page)] = Page;
             parameters[nameof(ProductImg.IsEditing)] = IsEditing;
+        }
+        else if (Page.Type == "ProductList")
+        {
+            parameters[nameof(ProductList.Page)] = Page;
+            parameters[nameof(ProductList.IsEditing)] = IsEditing;
         }
         return parameters;
     }

@@ -35,13 +35,14 @@
 
     private string GetGridStyle()
     {
-        return $"display: grid; grid-template-rows: repeat({Rows}, {RowHeight}rem); grid-template-columns: repeat({Columns}, 1fr); gap: 5px;";
+        return $"display: grid; grid-template-rows: repeat({Rows}, 1fr); grid-template-columns: repeat({Columns}, 1fr); gap: 5px;";
     }
 
 }
 
 <style>
     .grid-container {
+        height:fit-content;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         border-radius: 10px;
         padding: 10px;

@@ -39,9 +39,9 @@
     private string ImageBase64 { get; set; }
     private string ImageId { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        var x = Page.Data;
+        // Ensure the image is updated when the ImageId or Page data changes
         ImageId = Page.Data["Product:Image"];
         await LoadImageFromDatabase();
     }
@@ -50,11 +50,18 @@
     {
         try
         {
-            using var dbContext = DbImageContextFactory.CreateDbContext();
-            var image = await dbContext.Images.FindAsync(Convert.ToInt32(ImageId));
-            if (image != null && image.Data != null)
+            if (!string.IsNullOrEmpty(ImageId))
             {
-                ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
+                using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
+                var image = await dbContext.Images.FindAsync(Convert.ToInt32(ImageId));
+                if (image != null && image.Data != null)
+                {
+                    ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
+                }
+                else
+                {
+                    ImageBase64 = string.Empty;  // Clear image if no image found
+                }
             }
         }
         catch (Exception ex)
@@ -81,7 +88,7 @@
     {
         try
         {
-            using var dbContext = DbImageContextFactory.CreateDbContext();
+            using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
             var imageEntry = new PageImage { FileName = fileName, Data = imageData };
             dbContext.Images.Add(imageEntry);
             await dbContext.SaveChangesAsync();

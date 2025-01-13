@@ -14,13 +14,15 @@ else
 }
 
 @code {
+
     [Parameter]
     public int ProductId { get; set; }
 
     private Product? Product { get; set; }
     private PageContent? RootPageContent { get; set; }
 
-    protected override async Task OnInitializedAsync()
+    // This method will run each time parameters are set or updated (such as ProductId changing)
+    protected override async Task OnParametersSetAsync()
     {
         using var productContext = await DbProductContextFactory.CreateDbContextAsync();
         Product = await productContext.Products.FindAsync(ProductId);
@@ -44,7 +46,9 @@ else
     private async Task<PageContent> GeneratePageTemplate(ProductType productType, PageDbContext context)
     {
         var templateName = $"{productType}Template";
-        var existingTemplate = await context.Pages.FirstOrDefaultAsync(p => p.Name == templateName);
+        PageContentDictionaryCache.Initialize(context);
+        var allPages = context.Pages.ToList();
+        var existingTemplate = allPages.Where(p => p.Name == templateName).FirstOrDefault();
 
         if (existingTemplate != null)
         {

@@ -1,9 +1,4 @@
-﻿@using ESHOPMAT.Models
-@using Microsoft.AspNetCore.Components
-@using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.EntityFrameworkCore
-
-<div class="product-block" @onclick="HandleClick">
+﻿<div class="product-block" @onclick="HandleClick">
     <div class="product-image-container">
         <img src="@ImageBase64" alt="Product Image" class="product-image" />
     </div>
@@ -12,6 +7,49 @@
         <p>@Product.Price.ToString("C")</p>
     </div>
 </div>
+
+@code {
+    [Inject]
+    private IDbContextFactory<ImageDbContext> DbImageContextFactory { get; set; }
+
+    [Parameter]
+    public Product Product { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnProductClick { get; set; }
+
+    private string ImageBase64 { get; set; } = "/images/no-image.jpg";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadImageFromDatabase();
+    }
+
+    private async Task LoadImageFromDatabase()
+    {
+        try
+        {
+            if (Product.ImageIds.Length > 0)
+            {
+                using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
+                var image = await dbContext.Images.FindAsync(Product.ImageIds[0]);
+                if (image != null && image.Data != null)
+                {
+                    ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading image: {ex.Message}");
+        }
+    }
+
+    private void HandleClick()
+    {
+        OnProductClick.InvokeAsync(Product.Id);
+    }
+}
 
 <style>
     .product-block {
@@ -63,46 +101,3 @@
             color: #666;
         }
 </style>
-
-@code {
-    [Inject]
-    private IDbContextFactory<ImageDbContext> ImageDbContextFactory { get; set; }
-
-    [Parameter]
-    public Product Product { get; set; }
-
-    [Parameter]
-    public EventCallback<int> OnProductClick { get; set; }
-
-    private string ImageBase64 { get; set; } = "/images/no-image.jpg";
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadImageFromDatabase();
-    }
-
-    private async Task LoadImageFromDatabase()
-    {
-        try
-        {
-            if (Product.ImageIds.Length > 0)
-            {
-                using var dbContext = await ImageDbContextFactory.CreateDbContextAsync();
-                var image = await dbContext.Images.FindAsync(Product.ImageIds[0]);
-                if (image != null && image.Data != null)
-                {
-                    ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error loading image: {ex.Message}");
-        }
-    }
-
-    private void HandleClick()
-    {
-        OnProductClick.InvokeAsync(Product.Id);
-    }
-}

@@ -186,6 +186,9 @@ namespace ESHOPMAT.Models
                     //SetValue("Product:Description", settings.Product.Description.ToString(), "");
                     SetValue("Description", "PLeceholder", "Product");
                     break;
+                case "ProductList":
+                    SetValue("ProductList", ConvertProductListToString(settings.ProductList));
+                    break;
             }
 
             if (IsRoot)
@@ -193,6 +196,12 @@ namespace ESHOPMAT.Models
                 SetValue("isRoot", "true");
             }
         }
+        public string ConvertProductListToString(List<Product> products)
+        {
+            // Select the product IDs and join them into a comma-separated string
+            return string.Join(",", products.Select(p => p.Id.ToString()));
+        }
+
 
         // Method to add child component
         public PageContent AddChild(PageSettings childSettings)
@@ -370,19 +379,19 @@ namespace ESHOPMAT.Models
         }
     }
 
-        public class PageSettings
-        {
-            public string Name { get; set; }
+    public class PageSettings
+    {
+        public string Name { get; set; }
         public ComponentType Type { get; set; } = ComponentType.Unknown;
-            public Guid ShareId { get; set; }
+        public Guid ShareId { get; set; }
 
-            public PageDbContext PageDbContext { get; set; }
+        public PageDbContext PageDbContext { get; set; }
 
-            public int Row { get; set; } = 1;
-            public int Col { get; set; } = 1;
+        public int Row { get; set; } = 1;
+        public int Col { get; set; } = 1;
 
-            public int RowSpan { get; set; } = 1;
-            public int ColSpan { get; set; } = 1;
+        public int RowSpan { get; set; } = 1;
+        public int ColSpan { get; set; } = 1;
 
         public int RowHeight { get; set; } = 1;
 
@@ -391,7 +400,7 @@ namespace ESHOPMAT.Models
         public int RowCount { get; set; } = 1;
         public int ColCount { get; set; } = 1;
 
-            public int Count { get; set; } = 1;
+        public int Count { get; set; } = 1;
 
         public string Title { get; set; } = "";
         public string Text { get; set; } = "";
@@ -399,6 +408,8 @@ namespace ESHOPMAT.Models
         public string ImageUrl { get; set; } = "";
 
         public Product Product { get; set; } = new Product();
+
+        public List<Product> ProductList { get; set; } = new List<Product>();
         }
     public enum ComponentType
     {
@@ -409,6 +420,7 @@ namespace ESHOPMAT.Models
         OrderingBar,
         ProductImage,
         ProductTitleDescription,
+        ProductList,
         Unknown
     }
 
