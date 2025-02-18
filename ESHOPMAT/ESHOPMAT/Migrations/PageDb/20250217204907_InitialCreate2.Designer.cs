@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ESHOPMAT.Migrations.PageDb
 {
     [DbContext(typeof(PageDbContext))]
-    [Migration("20250112160044_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20250217204907_InitialCreate2")]
+    partial class InitialCreate2
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -33,6 +33,15 @@ namespace ESHOPMAT.Migrations.PageDb
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("DevPageId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("DevSharedId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDev")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsRoot")
                         .HasColumnType("bit");
 
@@ -43,6 +52,9 @@ namespace ESHOPMAT.Migrations.PageDb
                     b.Property<int?>("ParentId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("int");
+
                     b.Property<Guid>("SharedId")
                         .HasColumnType("uniqueidentifier");
 
@@ -51,6 +63,8 @@ namespace ESHOPMAT.Migrations.PageDb
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DevPageId");
 
                     b.HasIndex("ParentId");
 
@@ -74,10 +88,17 @@ namespace ESHOPMAT.Migrations.PageDb
 
             modelBuilder.Entity("ESHOPMAT.Models.PageContent", b =>
                 {
+                    b.HasOne("ESHOPMAT.Models.PageContent", "DevPage")
+                        .WithMany()
+                        .HasForeignKey("DevPageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ESHOPMAT.Models.PageContent", "Parent")
                         .WithMany("Children")
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("DevPage");
 
                     b.Navigation("Parent");
                 });

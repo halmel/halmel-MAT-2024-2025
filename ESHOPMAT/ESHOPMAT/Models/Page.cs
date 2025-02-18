@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.IdentityModel.Tokens;
+using Mono.TextTemplating.CodeCompilation;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
@@ -24,6 +25,8 @@ namespace ESHOPMAT.Models
 
         // Shared identifier linked to dictionary
         public Guid SharedId { get; set; }
+
+        public Guid DevSharedId { get; set; }
 
         public PageDbContext Context { get; set; }
 
@@ -52,12 +55,183 @@ namespace ESHOPMAT.Models
         // Parent ID for the recursive relationship
         public int? ParentId { get; set; }
 
+        // Parent ID for the recursive relationship
+        public int? DevPageId { get; set; }
+
         public PageContent? Parent { get; set; }
 
         // Recursive relationship for child components
         public List<PageContent> Children { get; set; } = new List<PageContent>();
+        private PageContent devPage;
+
+        public PageContent DevPage
+        {
+            get
+            {
+                // Ensure that devPage is initialized if it's null
+                if (devPage == null)
+                {
+                    InitializeDevPage();
+                }
+                return devPage;
+            }
+            set
+            {
+                // Optionally allow devPage to be set manually
+                devPage = value;
+            }
+        }
+
+        public void InitializeDevPage()
+        {
+            // Return early if devPage is already initialized
+            if (devPage != null)
+            {
+                return;
+            }
+
+            // Throw exception if the page is not a root page or if it is a dev page
+            if (!IsRoot || IsDev)
+            {
+                return;
+            }
+
+            // Create and assign the development page
+            devPage = CreateDevPage();
+        }
+
+
+        public PageContent CreateDevPage()
+        {
+            var devPage = new PageContent
+            {
+                Name = Name,
+                SharedId = this.DevSharedId,  // Use DevSharedId for the dev page
+                DevSharedId = this.DevSharedId,  // Use the existing DevSharedId
+                IsDev = true,  // Mark it as a dev page
+                IsRoot = this.IsRoot,  // Maintain IsRoot status
+                Type = this.Type,  // Copy the Type
+                Context = this.Context,  // Copy the DbContext reference (if needed)
+                ParentId = this.ParentId,  // Copy the ParentId
+                Parent = this.Parent,  // Copy the Parent reference
+                DevPageId = this.DevPageId,  // Copy the DevPageId (if needed)
+            };
+
+            // Initialize the data for the dev page
+            devPage.InitializeData();
+            devPage.Data = new Dictionary<string, string>(this.Data);  // Copy the data dictionary
+
+            // Copy children if any
+            if (this.Children.Any())
+            {
+                foreach (var child in this.Children)
+                {
+                    // Recursively add the children to the dev page
+                    var childCopy = child.CreateDevPage();  // Assuming child has a similar CreateDevPage method
+                    childCopy.ParentId = devPage.Id;  // Set the parent for the child copy
+                    devPage.Children.Add(childCopy);
+                }
+            }
+
+            return devPage;
+        }
+
+
+
+        public void PushDevVersion()
+        {
+
+            if (DevPage == null)
+            {
+                throw new InvalidOperationException("No development version available to push.");
+            }
+
+            // Copy properties from the DevPage to the original page (excluding Children and DevPage)
+            var devData = DevPage.GetType().GetProperties()
+                .Where(prop => prop.CanWrite &&
+                              prop.Name != nameof(IsDev) &&
+                              prop.Name != nameof(Id) &&
+                              prop.Name != nameof(SharedId) &&
+                              prop.Name != nameof(DevSharedId) && // Added DevSharedId
+                              prop.Name != nameof(Children) &&
+                              prop.Name != nameof(DevPage) &&
+                              prop.Name != nameof(Parent) && // Added Parent
+                              prop.Name != nameof(ParentId)) // Added ParentId
+                .ToDictionary(prop => prop, prop => prop.GetValue(DevPage));
+
+            foreach (var prop in devData)
+            {
+                prop.Key.SetValue(this, prop.Value);
+            }
+
+            // ***Improved Child Handling***
+            PushDevVersionForChildren(); // No argument needed anymore
+
+            this.IsDev = false;
+            Context.Pages.Update(this);
+            Context.SaveChanges();
+        }
+
+        public void PushDevVersionForChildren()
+        {
+            // 1. Clear existing Children in the production version
+            this.Children.Clear();
+
+            // 2. Iterate through the *dev* children and create copies for production
+            foreach (var devChild in DevPage.Children)
+            {
+                var prodChild = new PageContent // Create a *new* PageContent instance
+                {
+                    Name = devChild.Name,
+                    SharedId = this.SharedId, // Use the dev child's SharedId
+                    DevSharedId = this.DevSharedId,
+                    Type = devChild.Type,
+                    IsDev = false, // Production child!
+                    IsRoot = devChild.IsRoot,
+                    Context = this.Context,  // Important: Use the same context
+                    ParentId = this.Id,       // Set the parent ID
+                    Parent = this,  // Copy the Parent reference
+                    DevPageId = this.DevPageId,  // Copy the DevPageId (if needed)
+                    // ... copy other properties as needed
+                };
+
+
+                // Recursively handle children of the dev child
+                CopyDevChildrenToProd(devChild, prodChild);
+
+
+                this.Children.Add(prodChild); // Add the *new* production child
+            }
+        }
+
+        private void CopyDevChildrenToProd(PageContent devChild, PageContent prodChild)
+        {
+            foreach (var devGrandChild in devChild.Children)
+            {
+                var prodGrandChild = new PageContent
+                {
+                    Name = devGrandChild.Name,
+                    SharedId = devGrandChild.SharedId,
+                    DevSharedId = devGrandChild.DevSharedId,
+                    Type = devGrandChild.Type,
+                    IsDev = false,
+                    IsRoot = devGrandChild.IsRoot,
+                    Context = this.Context,
+                    ParentId = prodChild.Id, // Parent is the prodChild we just created
+                    Parent = prodChild,  // Copy the Parent reference
+                    // ... copy other properties
+                };
+                CopyDevChildrenToProd(devGrandChild, prodGrandChild); // Recursive call
+                prodChild.Children.Add(prodGrandChild);
+            }
+        }
+
+
+
 
         public bool IsRoot { get; set; } = true;
+        public bool IsDev { get; set; } = false;
+        public int? ProductId { get; set; }
         public PageContent()
         {
         }
@@ -70,11 +244,13 @@ namespace ESHOPMAT.Models
             if (settings.IsRoot)
             {
                 SharedId = Guid.NewGuid();
+                DevSharedId = Guid.NewGuid();
                 InitializeData();
             }
             else
             {
                 SharedId = settings.ShareId;
+                DevSharedId = settings.DevShareId;
             }
 
             // Initialize the cache if it is null
@@ -90,7 +266,7 @@ namespace ESHOPMAT.Models
         }
 
 
-        private void InitializeData()
+        public void InitializeData()
         {
             if (PageContentDictionaryCache.Get(SharedId) == null)
             {
@@ -142,8 +318,9 @@ namespace ESHOPMAT.Models
         {
             SetValue("Title", product.Name, "Product");
             SetValue("Description", product.Description, "Product");
-            SetValue("Image", product.ImageIds[0].ToString(), "Product");
+            SetValue("Image", string.Join(",", product.ImageIds), "Product");
             SetValue("Id", product.Id.ToString(), "Product");
+            ProductId = product.Id;
 
         }
 
@@ -153,6 +330,10 @@ namespace ESHOPMAT.Models
 
             // Use namespaced keys
             SetValue("type", settings.Type.ToString());
+            //if (!settings.IsRoot)
+            //{
+            //    SetValue("parent",Parent.Name);
+            //}
 
             switch (Type)
             {
@@ -207,6 +388,7 @@ namespace ESHOPMAT.Models
         public PageContent AddChild(PageSettings childSettings)
         {
             childSettings.ShareId = SharedId;
+            childSettings.DevShareId = DevSharedId;
 
             var childComponent = new PageContent(childSettings, Context)
             {
@@ -276,6 +458,10 @@ namespace ESHOPMAT.Models
             return settings;
         }
 
+
+
+
+
     }
 
     public class PageContentConfiguration : IEntityTypeConfiguration<PageContent>
@@ -284,15 +470,21 @@ namespace ESHOPMAT.Models
         {
             builder.HasKey(p => p.Id);
 
-            builder.HasMany(p => p.Children)
-                .WithOne(p => p.Parent)
+            // Parent-Child Relationship (Restrict Delete to Prevent Cycles)
+            builder.HasOne(p => p.Parent)
+                .WithMany(p => p.Children)
                 .HasForeignKey(p => p.ParentId)
-                .OnDelete(DeleteBehavior.Restrict); // Prevent cascading delete
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // DevPage Relationship (Restrict Delete to Prevent Circular References)
+            builder.HasOne(p => p.DevPage)
+                .WithMany()  // No inverse navigation
+                .HasForeignKey(p => p.DevPageId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             builder.Property(p => p.SharedId).IsRequired();
         }
     }
-
 
     public class PageContentDictionaryConfiguration : IEntityTypeConfiguration<PageContentDictionary>
     {
@@ -300,7 +492,7 @@ namespace ESHOPMAT.Models
         {
             builder.HasKey(d => d.SharedId);
 
-            // Use a value converter to store the dictionary as a JSON string
+            // Store dictionary as JSON string
             builder.Property(d => d.Data)
                 .HasConversion(
                     v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
@@ -308,7 +500,6 @@ namespace ESHOPMAT.Models
                 .IsRequired();
         }
     }
-
 
     public class PageDbContext : DbContext
     {
@@ -324,8 +515,62 @@ namespace ESHOPMAT.Models
             modelBuilder.ApplyConfiguration(new PageContentConfiguration());
             modelBuilder.ApplyConfiguration(new PageContentDictionaryConfiguration());
         }
+
+        /// <summary>
+        /// Deletes a page and its related data, ensuring cache is updated.
+        /// </summary>
+        public async Task DeletePageAsync(int pageId)
+        {
+            var page = await Pages
+                .Include(p => p.Children)  // Load child pages
+                .Include(p => p.DevPage)   // Load associated DevPage
+                    .ThenInclude(d => d.Children)  // Load children of the DevPage
+                .FirstOrDefaultAsync(p => p.Id == pageId);
+
+            if (page == null)
+                throw new KeyNotFoundException("Page not found.");
+
+            // Remove associated PageContentDictionary entries from cache and DB
+            PageContentDictionaryCache.Remove(page.SharedId, this);
+
+            if (page.DevPage != null)
+            {
+                PageContentDictionaryCache.Remove(page.DevPage.SharedId, this);
+            }
+
+            // Recursively delete child pages of the current page
+            foreach (var child in page.Children.ToList())
+            {
+                await DeletePageAsync(child.Id);
+            }
+
+            // If the page has a DevPage, delete its child pages recursively as well
+            if (page.DevPage != null)
+            {
+                foreach (var devChild in page.DevPage.Children.ToList())
+                {
+                    await DeletePageAsync(devChild.Id);
+                }
+
+                // Remove the DevPage after its children are deleted
+                Pages.Remove(page.DevPage);
+            }
+
+            // Ensure the page is not referenced as a DevPage by other pages
+            if (Pages.Any(p => p.DevPageId == page.Id))
+                throw new InvalidOperationException("Cannot delete a page that is referenced as a DevPage. Set references to NULL first.");
+
+            // Remove the main page
+            Pages.Remove(page);
+
+            await SaveChangesAsync();
+        }
+
     }
 
+    /// <summary>
+    /// Cache manager for PageContentDictionary to optimize lookups.
+    /// </summary>
     public static class PageContentDictionaryCache
     {
         private static readonly ConcurrentDictionary<Guid, PageContentDictionary> _cache = new();
@@ -339,7 +584,8 @@ namespace ESHOPMAT.Models
             }
         }
 
-        public static IReadOnlyDictionary<Guid, PageContentDictionary> GetAll() => new ReadOnlyDictionary<Guid, PageContentDictionary>(_cache);
+        public static IReadOnlyDictionary<Guid, PageContentDictionary> GetAll() =>
+            new ReadOnlyDictionary<Guid, PageContentDictionary>(_cache);
 
         public static PageContentDictionary Get(Guid sharedId)
         {
@@ -368,7 +614,6 @@ namespace ESHOPMAT.Models
             context.SaveChanges();
         }
 
-
         public static void Remove(Guid sharedId, PageDbContext context)
         {
             if (_cache.TryRemove(sharedId, out var dictionary))
@@ -384,33 +629,65 @@ namespace ESHOPMAT.Models
         public string Name { get; set; }
         public ComponentType Type { get; set; } = ComponentType.Unknown;
         public Guid ShareId { get; set; }
-
-        public PageDbContext PageDbContext { get; set; }
+        public Guid DevShareId { get; set; }
 
         public int Row { get; set; } = 1;
         public int Col { get; set; } = 1;
-
         public int RowSpan { get; set; } = 1;
         public int ColSpan { get; set; } = 1;
-
-        public int RowHeight { get; set; } = 1;
-
+        public int RowHeight { get; set; } = 16;
         public bool IsRoot { get; set; } = false;
-
         public int RowCount { get; set; } = 1;
         public int ColCount { get; set; } = 1;
-
         public int Count { get; set; } = 1;
-
         public string Title { get; set; } = "";
         public string Text { get; set; } = "";
-
         public string ImageUrl { get; set; } = "";
-
         public Product Product { get; set; } = new Product();
-
         public List<Product> ProductList { get; set; } = new List<Product>();
+
+        public Dictionary<string, object> GetFilteredProperties()
+        {
+            var filteredData = new Dictionary<string, object>();
+
+            switch (Type)
+            {
+                case ComponentType.Container:
+                    filteredData["RowCount"] = RowCount;
+                    filteredData["ColCount"] = ColCount;
+                    filteredData["RowHeight"] = RowHeight;
+                    break;
+                case ComponentType.Counter:
+                    filteredData["Count"] = Count;
+                    break;
+                case ComponentType.TextBlock:
+                    filteredData["Text"] = Text;
+                    filteredData["Title"] = Title;
+                    break;
+                case ComponentType.Image:
+                    filteredData["ImageUrl"] = ImageUrl;
+                    break;
+                case ComponentType.OrderingBar:
+                    filteredData["Id"] = "0"; // Placeholder for ordering bar
+                    break;
+                case ComponentType.ProductImage:
+                    filteredData["Image"] = "0"; // Placeholder for product image
+                    break;
+                case ComponentType.ProductTitleDescription:
+                    filteredData["Title"] = "Placeholder";
+                    filteredData["Description"] = "Placeholder";
+                    break;
+                case ComponentType.ProductList:
+                    filteredData["ProductList"] = ProductList.Select(p => p.Id).ToList();
+                    break;
+                default:
+                    break;
+            }
+
+            return filteredData;
         }
+    }
+
     public enum ComponentType
     {
         Container,

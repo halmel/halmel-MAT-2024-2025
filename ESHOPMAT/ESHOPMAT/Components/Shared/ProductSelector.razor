@@ -10,6 +10,7 @@
 
 @code {
     [Parameter] public EventCallback<Product> OnProductSelected { get; set; }
+    [Parameter] public int DefaultProductId { get; set; } = 0;
 
     private int _selectedProductId;
     private int SelectedProductId
@@ -20,7 +21,7 @@
             if (_selectedProductId != value)
             {
                 _selectedProductId = value;
-                _ = HandleProductSelection(value); // Fire and forget (ensure proper exception handling)
+                _ = HandleProductSelection(value);
             }
         }
     }
@@ -32,6 +33,12 @@
         using (var context = DbProductContextFactory.CreateDbContext())
         {
             Products = await context.Products.ToListAsync();
+        }
+
+        if (DefaultProductId != 0 && Products.Any(p => p.Id == DefaultProductId))
+        {
+            SelectedProductId = DefaultProductId;
+            await HandleProductSelection(DefaultProductId);
         }
     }
 

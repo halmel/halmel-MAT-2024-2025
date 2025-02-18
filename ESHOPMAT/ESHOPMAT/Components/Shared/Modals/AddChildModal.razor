@@ -1,40 +1,36 @@
 ﻿@code {
-    [Parameter] public bool IsVisible { get; set; } // Controls visibility of the modal
-    [Parameter] public EventCallback<bool> OnClose { get; set; } // Trigger to close the modal
-    [Parameter] public EventCallback<PageSettings> OnAdd { get; set; } // Trigger when a child is added
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public EventCallback<bool> OnClose { get; set; }
+    [Parameter] public EventCallback<PageSettings> OnAdd { get; set; }
 
-    // Instance of PageSettings for dynamic binding
-    private PageSettings newChildSettings = new PageSettings();
+    private PageSettings newChildSettings = new PageSettings { Type = ComponentType.Unknown };
+    private Dictionary<string, object> filteredProperties = new Dictionary<string, object>();
 
-    // Method to handle Add Child button click
     private async Task AddChildComponent()
     {
         if (string.IsNullOrEmpty(newChildSettings.Name))
         {
-            // Show some validation message if the name is empty (optional)
-            return;
+            return; // Prevent adding without a name
         }
 
-        // Emit the OnAdd event, passing the new child settings
         await OnAdd.InvokeAsync(newChildSettings);
-
-        // Close the modal
         await OnClose.InvokeAsync(false);
     }
 
-    // Method to handle Cancel button click
     private async Task Cancel()
     {
         await OnClose.InvokeAsync(false);
     }
 
-    // Function to get the properties of PageSettings dynamically
-    private IEnumerable<System.Reflection.PropertyInfo> GetProperties()
+    private void OnTypeChanged(ChangeEventArgs e)
     {
-        return typeof(PageSettings).GetProperties();
+        if (e.Value != null && Enum.TryParse<ComponentType>(e.Value.ToString(), out var selectedType))
+        {
+            newChildSettings.Type = selectedType;
+            filteredProperties = newChildSettings.GetFilteredProperties(); // Update fields dynamically
+        }
     }
 
-    // Helper method to set the value dynamically
     private void SetPropertyValue(string propertyName, object value)
     {
         var property = typeof(PageSettings).GetProperty(propertyName);
@@ -44,17 +40,18 @@
         }
     }
 
-    // Helper method to get the value dynamically
     private object GetPropertyValue(string propertyName)
     {
         var property = typeof(PageSettings).GetProperty(propertyName);
         return property?.GetValue(newChildSettings);
     }
 
-    // Handle boolean value changes manually for checkboxes
-    private void OnBooleanValueChanged(string propertyName, bool value)
+    private void OnBooleanValueChanged(string propertyName, ChangeEventArgs e)
     {
-        SetPropertyValue(propertyName, value);
+        if (bool.TryParse(e.Value?.ToString(), out bool boolValue))
+        {
+            SetPropertyValue(propertyName, boolValue);
+        }
     }
 }
 
@@ -68,46 +65,53 @@
                     <button type="button" class="btn-close" @onclick="Cancel" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- Loop over each property of PageSettings and generate input fields -->
-@foreach (var property in GetProperties())
-{
-    <div class="form-group">
-        <label for="@property.Name">@property.Name</label>
-        @if (property.PropertyType == typeof(string))
-        {
-            <input id="@property.Name" class="form-control"
-                   value="@GetPropertyValue(property.Name)"
-                   @oninput="(e) => SetPropertyValue(property.Name, e.Value.ToString())" />
-        }
-        else if (property.PropertyType == typeof(int))
-        {
-            <input id="@property.Name" type="number" class="form-control"
-                   value="@GetPropertyValue(property.Name)"
-                   @oninput="(e) => SetPropertyValue(property.Name, int.Parse(e.Value.ToString()))" />
-        }
-        else if (property.PropertyType == typeof(bool))
-        {
-            <input id="@property.Name" type="checkbox" class="form-check-input"
-                   checked="@((bool)GetPropertyValue(property.Name))"
-                   @onchange="(e) => OnBooleanValueChanged(property.Name, (bool)e.Value)" />
-        }
-        else if (property.PropertyType.IsEnum) 
-        {
-            <!-- Render a dropdown for enums -->
-            <select id="@property.Name" class="form-select"
-                    @onchange="(e) => SetPropertyValue(property.Name, Enum.Parse(property.PropertyType, e.Value.ToString()))">
-                @foreach (var value in Enum.GetValues(property.PropertyType))
-                {
-                    <option value="@value" selected="@value.Equals(GetPropertyValue(property.Name))">
-                        @value
-                    </option>
-                }
-            </select>
-        }
-        <!-- Add more input types based on property type if needed -->
-    </div>
-}
+                    <!-- Name Field -->
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input id="name" class="form-control"
+                               value="@newChildSettings.Name"
+                               @oninput="(e) => newChildSettings.Name = e.Value?.ToString()" />
+                    </div>
 
+                    <!-- Type Dropdown -->
+                    <div class="form-group">
+                        <label for="type">Type</label>
+                        <select id="type" class="form-select" @onchange="OnTypeChanged">
+                            @foreach (var value in Enum.GetValues(typeof(ComponentType)))
+                            {
+                                <option value="@value" selected="@(value.Equals(newChildSettings.Type) ? "selected" : null)">@value</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Dynamically Render Filtered Fields -->
+                    @if (newChildSettings.Type != ComponentType.Unknown)
+                    {
+                        @foreach (var property in filteredProperties)
+                        {
+                            <div class="form-group">
+                                <label for="@property.Key">@property.Key</label>
+                                @if (property.Value is int)
+                                {
+                                    <input id="@property.Key" type="number" class="form-control"
+                                           value="@GetPropertyValue(property.Key)"
+                                           @oninput="(e) => { if (int.TryParse(e.Value?.ToString(), out int result)) SetPropertyValue(property.Key, result); }" />
+                                }
+                                else if (property.Value is bool)
+                                {
+                                    <input id="@property.Key" type="checkbox" class="form-check-input"
+                                           checked="@(Convert.ToBoolean(property.Value))"
+                                           @onchange="(e) => OnBooleanValueChanged(property.Key, e)" />
+                                }
+                                else
+                                {
+                                    <input id="@property.Key" class="form-control"
+                                           value="@GetPropertyValue(property.Key)"
+                                           @oninput="(e) => SetPropertyValue(property.Key, e.Value?.ToString())" />
+                                }
+                            </div>
+                        }
+                    }
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-primary" @onclick="AddChildComponent">Add</button>

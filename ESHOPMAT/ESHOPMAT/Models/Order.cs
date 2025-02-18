@@ -66,7 +66,12 @@ namespace ESHOPMAT.Models
             }
         }
     }
-
+    public class ContactInformation
+    {
+        public string Name { get; set; }
+        public string Email { get; set; }
+        public string TelephoneNumber { get; set; }
+    }
     public enum OrderStatus
     {
         Undecided,
@@ -96,8 +101,13 @@ namespace ESHOPMAT.Models
         [Required]
         public int OrderId { get; set; } // Foreign key to Order
 
+        [Required]
+        public int Stock { get; set; } // Foreign key to Order
+
         [ForeignKey("OrderId")]
         public Order Order { get; set; } // Navigation property
+
+
 
         public OrderItem() { }
 
@@ -110,6 +120,7 @@ namespace ESHOPMAT.Models
             Price = product.Price;
             Name = product.Name;
             Quantity = quantity;
+            Stock = product.Amount;
         }
 
         public decimal TotalPrice()

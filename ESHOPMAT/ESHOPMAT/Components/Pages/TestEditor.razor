@@ -13,29 +13,34 @@ else
     <DynamicComponentRendering Page="Root" IsEditing="true"></DynamicComponentRendering>
 
     <h4>Main Component Data</h4>
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Key</th>
-                <th>Value</th>
-                <th>Actions</th> <!-- New column for the delete button -->
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var dataItem in Root.Data.ToList())
-            {
+    <button class="btn btn-info" @onclick="ToggleDataList">Show/Hide Data</button>
+
+    @if (IsDataListVisible)
+    {
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>@dataItem.Key</td>
-                    <td>
-                        <input type="text" value="@dataItem.Value" @oninput="(e) => UpdateDataValue(Root, dataItem.Key, e.Value?.ToString())" />
-                    </td>
-                    <td>
-                        <button @onclick="() => DeleteDataEntry(dataItem.Key)">Delete</button> <!-- Delete button -->
-                    </td>
+                    <th>Key</th>
+                    <th>Value</th>
+                    <th>Actions</th>
                 </tr>
-            }
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                @foreach (var dataItem in Root.Data.ToList())
+                {
+                    <tr>
+                        <td>@dataItem.Key</td>
+                        <td>
+                            <input type="text" value="@dataItem.Value" @oninput="(e) => UpdateDataValue(Root, dataItem.Key, e.Value?.ToString())" />
+                        </td>
+                        <td>
+                            <button class="btn btn-danger" @onclick="() => DeleteDataEntry(dataItem.Key)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
 
     <h4>Child Components</h4>
     @if (Root.Children.Count > 0)
@@ -45,8 +50,8 @@ else
             {
                 <li>
                     <strong>@child.Name (@child.Type)</strong>
-                    <button @onclick="() => EditChild(child)">Edit</button>
-                    <button @onclick="() => DeleteChild(child)">Delete</button>
+                    <button class="btn btn-warning" @onclick="() => EditChild(child)">Edit</button>
+                    <button class="btn btn-danger" @onclick="() => DeleteChild(child)">Delete</button>
                     @if (child.Children.Count > 0)
                     {
                         <ul>
@@ -65,24 +70,23 @@ else
         <p>No child components.</p>
     }
 
-    <!-- Button to open the Add Child modal -->
     <button class="btn btn-primary" @onclick="ShowAddChildModal">Add Child</button>
-
-    <!-- Modal component to add a new child component -->
     <AddChildModal IsVisible="IsAddingChild" OnClose="HandleCloseAddModal" OnAdd="HandleAddChild" />
 
     <div style="margin-top: 20px;">
-        <button class="btn btn-success" @onclick="SavePageContent">Save</button>
-        <button class="btn btn-danger" @onclick="DeletePage">Delete</button>
+        <button class="btn btn-danger" @onclick="DeletePage">Delete Page</button>
         <button class="btn btn-secondary" @onclick="LoadPreviousPage" disabled="@(!HasPreviousPage)">Previous</button>
         <button class="btn btn-secondary" @onclick="LoadNextPage" disabled="@(!HasNextPage)">Next</button>
+        <button class="btn btn-secondary" @onclick="SavePageContent">Save</button>
+        <button class="btn btn-secondary" @onclick="PushToProd">PushToProd</button>
     </div>
 
-    <ProductSelector OnProductSelected="HandleProductSelection" />
+    <ProductSelector OnProductSelected="HandleProductSelection" DefaultProductId="@(Root.Data.ContainsKey("Product:Id") ? int.Parse(Root.Data["Product:Id"]) : 0)" />
+
 
     @if (!IsEditingRoot)
     {
-        <button @onclick="BackToRoot">Go Back</button>
+        <button class="btn btn-dark" @onclick="BackToRoot">Go Back</button>
     }
 }
 
@@ -91,9 +95,28 @@ else
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+    private bool IsDataListVisible = false;
+
+    private void ToggleDataList()
+    {
+        IsDataListVisible = !IsDataListVisible;
+    }
+
+
     private void HandleProductSelection(Product selectedProduct)
     {
-        UpdateDataValue(Root, "Product:Id", selectedProduct.Id.ToString());
+        Root.SetProductData(selectedProduct);
     }
 
 
@@ -127,14 +150,14 @@ else
     private int CurrentPageIndex = 0;
     private bool IsAddingChild = false; // Flag for showing the Add Child modal
 
-    private ESHOPMAT.Models.PageContent Root => Pages.Count > 0 ? Pages[CurrentPageIndex] : CreateDefaultPage();
+    private ESHOPMAT.Models.PageContent Root => Pages.Count > 0 ? Pages[CurrentPageIndex].DevPage : CreateDefaultPage();
     private bool HasPreviousPage => CurrentPageIndex > 0;
     private bool HasNextPage => CurrentPageIndex < Pages.Count - 1;
 
     protected override async Task OnInitializedAsync()
     {
         PageContentDictionaryCache.Initialize(DbContext);
-        Pages = FetchRootPages();
+        Pages = await FetchRootPages();  // Await the asynchronous call to fetch pages
 
         if (Pages.Count == 0)
         {
@@ -144,13 +167,14 @@ else
             await DbContext.SaveChangesAsync();
         }
     }
-    private List<PageContent> FetchRootPages()
-    {
-        // For example, assume `PageContentService.GetAllPages()` fetches all pages
 
-        var allPages = DbContext.Pages.ToList();
-        return allPages.Where(page => page.IsRoot).ToList();
+    private async Task<List<PageContent>> FetchRootPages()  // Return Task<List<PageContent>> instead of List<PageContent>
+    {
+        // For example, assume `PageContentService.GetAllPages()` fetches all pages asynchronously
+        var allPages = await DbContext.Pages.ToListAsync();  // Asynchronously fetch all pages from the database
+        return allPages.Where(page => page.IsRoot == true && page.IsDev == false).ToList();
     }
+
     private ESHOPMAT.Models.PageContent CreateDefaultPage()
     {
         var defaultPage = new PageContent(new PageSettings
@@ -189,14 +213,20 @@ else
         {
             DbContext.Entry(existingPage).State = EntityState.Detached; // Detach to avoid conflicts
             DbContext.Pages.Update(currentPage);
+
         }
         else
         {
+            if (currentPage.IsDev == true)
+            {
+                throw new InvalidOperationException("Cant save dev page like this");
+            }
             await DbContext.Pages.AddAsync(currentPage);
         }
 
         await DbContext.SaveChangesAsync();
         PageContentDictionaryCache.Update(currentPage.SharedId, currentPage.Data, DbContext);
+        PageContentDictionaryCache.Update(currentPage.DevSharedId, currentPage.DevPage.Data, DbContext);
     }
 
     private async Task DeletePage()
@@ -208,7 +238,7 @@ else
 
         if (existingPage != null)
         {
-            DbContext.Pages.Remove(existingPage);
+            await DbContext.DeletePageAsync(existingPage.Id);
             await DbContext.SaveChangesAsync();
         }
 
@@ -250,12 +280,12 @@ else
     {
         if (newChildSettings.IsRoot == true)
         {
-           await AddRoot(newChildSettings);
+            await AddRoot(newChildSettings);
         }else
         {
-        // Add the new child component to the current root
-        Root.AddChild(newChildSettings);
-            
+            // Add the new child component to the current root
+            Root.AddChild(newChildSettings);
+
         }
     }
     private async Task AddRoot(PageSettings x)
@@ -280,6 +310,10 @@ else
         IsEditingRoot = true;
         Pages.Remove(Root);
         CurrentPageIndex = StorePageIndex;
+    }
+
+    private void PushToProd(){
+        Pages[CurrentPageIndex].PushDevVersion();
     }
 
     // Method to update data values for the page or child component

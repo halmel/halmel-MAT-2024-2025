@@ -18,6 +18,7 @@ else
                 <th>Product</th>
                 <th>Price</th>
                 <th>Quantity</th>
+                <th>Stock</th>
                 <th>Total</th>
                 <th>Actions</th>
             </tr>
@@ -30,11 +31,16 @@ else
                     <td>@item.Price.ToString("C")</td>
                     <td>
                         <div class="counter-container">
-                            <button class="counter-button" @onclick="() => Decrement(item)">-</button>
+                            <button class="counter-button" @onclick="() => UpdateQuantity(item, -1)">-</button>
                             <div class="counter-value">@item.Quantity</div>
-                            <button class="counter-button" @onclick="() => Increment(item)">+</button>
+                            <button class="counter-button" @onclick="() => UpdateQuantity(item, 1)" disabled="@IsMaxStockReached(item)">+</button>
                         </div>
+                        @if (item.Quantity > item.Stock)
+                        {
+                            <p class="error-message">Not enough stock available!</p>
+                        }
                     </td>
+                    <td>@item.Stock</td> <!-- Displays available stock -->
                     <td>@((item.Price * item.Quantity).ToString("C"))</td>
                     <td><button class="remove-button" @onclick="() => RemoveFromCart(item)">Remove</button></td>
                 </tr>
@@ -57,18 +63,21 @@ else
 
         <button type="submit" class="order-button">Submit Order</button>
     </form>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <p class="error-message">@ErrorMessage</p>
+    }
 }
 
 @code {
-
-    [Inject]
-    private IDbContextFactory<OrderDbContext> DbProductContextFactory { get; set; }
+    [Inject] private IDbContextFactory<OrderDbContext> DbOrderContextFactory { get; set; }
+    [Inject] private IDbContextFactory<ProductDbContext> DbProductContextFactory { get; set; }
 
     private List<OrderItem> CartItems { get; set; } = new List<OrderItem>();
-    private decimal TotalCost => CalculateTotal();
+    private decimal TotalCost => CartItems.Sum(item => item.Price * item.Quantity);
     private ContactInformation ContactInfo { get; set; } = new ContactInformation();
-
-    private bool isRendered = false;
+    private string ErrorMessage { get; set; } = string.Empty;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -76,49 +85,61 @@ else
         {
             var result = await ProtectedSessionStore.GetAsync<List<OrderItem>>("cart");
             CartItems = result.Success ? result.Value ?? new List<OrderItem>() : new List<OrderItem>();
-            isRendered = true;
+
+            // Fetch stock info from database
+            using var productDb = DbProductContextFactory.CreateDbContext();
+            foreach (var item in CartItems)
+            {
+                var product = await productDb.Products.FindAsync(item.ProductId);
+                if (product != null)
+                {
+                    item.Stock = product.Amount; // Set available stock
+                }
+            }
+
             StateHasChanged();
         }
     }
 
-    private void Increment(OrderItem item)
+    private void UpdateQuantity(OrderItem item, int change)
     {
-        item.Quantity++;
-        UpdateTotalCost();
+        var newQuantity = item.Quantity + change;
+        if (newQuantity >= 0 && newQuantity <= item.Stock) // Prevent exceeding stock
+        {
+            item.Quantity = newQuantity;
+        }
+        StateHasChanged();
     }
 
-    private void Decrement(OrderItem item)
-    {
-        if (item.Quantity > 1)
-        {
-            item.Quantity--;
-        }
-        else
-        {
-            CartItems.Remove(item);
-        }
-        UpdateTotalCost();
-    }
-
-    private decimal CalculateTotal()
-    {
-        decimal total = 0;
-        foreach (var item in CartItems)
-        {
-            total += item.Price * item.Quantity;
-        }
-        return total;
-    }
+    private bool IsMaxStockReached(OrderItem item) => item.Quantity >= item.Stock;
 
     private void RemoveFromCart(OrderItem item)
     {
         CartItems.Remove(item);
-        UpdateTotalCost();
+        StateHasChanged();
     }
 
     private async Task SubmitOrder()
     {
-        var ProductDb = DbProductContextFactory.CreateDbContext();
+        using var orderDb = DbOrderContextFactory.CreateDbContext();
+        using var productDb = DbProductContextFactory.CreateDbContext();
+
+        var productList = await productDb.Products.ToListAsync();
+        List<Product> toUpdate = new List<Product>();
+
+        foreach (var item in CartItems)
+        {
+            var product = productList.FirstOrDefault(x => x.Id == item.ProductId);
+            if (product == null || product.Amount < item.Quantity)
+            {
+                ErrorMessage = $"Not enough stock available for {item.Name}. Please adjust your order.";
+                StateHasChanged();
+                return;
+            }
+            product.Amount -= item.Quantity;
+            toUpdate.Add(product);
+        }
+
         var order = new Order
             {
                 Name = ContactInfo.Name,
@@ -128,25 +149,17 @@ else
                 OrderItems = CartItems.ToList()
             };
 
-        ProductDb.Orders.Add(order);
-        await ProductDb.SaveChangesAsync();
+        orderDb.Orders.Add(order);
 
-        // Clear the cart
+        foreach (var item in toUpdate)
+        {
+            productDb.Products.Update(item);
+        }
+        await productDb.SaveChangesAsync();
+        await orderDb.SaveChangesAsync();
+
         await ProtectedSessionStore.DeleteAsync("cart");
-
-        // Navigation.NavigateTo("/order-successful", true);
-    }
-
-    private void UpdateTotalCost()
-    {
-        StateHasChanged();
-    }
-
-    private class ContactInformation
-    {
-        public string Name { get; set; }
-        public string Email { get; set; }
-        public string TelephoneNumber { get; set; }
+        ErrorMessage = string.Empty;
     }
 }
 
@@ -176,6 +189,11 @@ else
         transition: background-color 0.3s ease;
     }
 
+        .counter-button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
         .counter-button:hover {
             background-color: #d0d0d0;
         }
@@ -199,4 +217,10 @@ else
         .remove-button:hover {
             background-color: #d32f2f;
         }
+
+    .error-message {
+        color: red;
+        font-size: 14px;
+        margin-top: 5px;
+    }
 </style>

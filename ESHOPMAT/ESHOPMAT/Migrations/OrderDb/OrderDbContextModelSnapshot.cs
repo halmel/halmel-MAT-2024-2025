@@ -80,6 +80,9 @@ namespace ESHOPMAT.Migrations.OrderDb
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<int>("Stock")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrderId");

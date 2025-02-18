@@ -59,64 +59,23 @@
             </NavLink>
         </div>
 
-        <!-- Auth Links -->
-        <AuthorizeView>
-            <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Manage">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <form action="Account/Logout" method="post">
-                        <AntiforgeryToken />
-                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
-                        <button type="submit" class="nav-link">
-                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
-                        </button>
-                    </form>
-                </div>
-            </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Register">
-                        <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Login">
-                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
-                    </NavLink>
-                </div>
-            </NotAuthorized>
-        </AuthorizeView>
         <!-- Testing Links Section -->
         <div class="nav-item px-3">
             <button class="btn btn-link" @onclick="() => ToggleTestingLinks()">
-                <span class="bi bi-chevron-right" aria-hidden="true"></span> Testing Links
+                <span class="bi bi-chevron-right" aria-hidden="true"></span> Admin Links
             </button>
 
             @if (showTestingLinks)
             {
                 <ul class="nav flex-column ml-3">
                     <li>
-                        <NavLink class="nav-link" href="counter">
-                            <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-                        </NavLink>
-                    </li>
-                    <li>
-                        <NavLink class="nav-link" href="weather">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-                        </NavLink>
-                    </li>
-                    <li>
                         <NavLink class="nav-link" href="page-editor">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestEditor
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> PageEditor
                         </NavLink>
                     </li>
                     <li>
                         <NavLink class="nav-link" href="page-viewer">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestViewer
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> PageViewer
                         </NavLink>
                     </li>
                     <li>
@@ -126,7 +85,7 @@
                     </li>
                     <li>
                         <NavLink class="nav-link" href="/email-templates">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestEmailEditor
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> EmailEditor
                         </NavLink>
                     </li>
                     <li>
@@ -136,9 +95,40 @@
                     </li>
                     <li>
                         <NavLink class="nav-link" href="/admin/orders">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Product Orders
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Product Orders Admin
                         </NavLink>
                     </li>
+                    <!-- Auth Links -->
+                    <AuthorizeView>
+                        <Authorized>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="Account/Manage">
+                                    <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <form action="Account/Logout" method="post">
+                                    <AntiforgeryToken />
+                                    <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                                    <button type="submit" class="nav-link">
+                                        <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
+                                    </button>
+                                </form>
+                            </div>
+                        </Authorized>
+                        <NotAuthorized>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="Account/Register">
+                                    <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
+                                </NavLink>
+                            </div>
+                            <div class="nav-item px-3">
+                                <NavLink class="nav-link" href="Account/Login">
+                                    <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
+                                </NavLink>
+                            </div>
+                        </NotAuthorized>
+                    </AuthorizeView>
                 </ul>
             }
             </div>

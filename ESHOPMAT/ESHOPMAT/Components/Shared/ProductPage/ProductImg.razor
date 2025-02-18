@@ -4,9 +4,13 @@
         <label for="fileUpload" class="upload-label">Drag and drop or click to upload an image</label>
         <InputFile OnChange="OnImageSelected" id="fileUpload" class="file-input" />
 
-        @if (!string.IsNullOrEmpty(ImageBase64))
+        @if (!string.IsNullOrEmpty(CurrentImageBase64))
         {
-            <img src="@ImageBase64" alt="Product Image" class="display-image" />
+            <div class="slideshow-container">
+                <img src="@CurrentImageBase64" alt="Product Image" class="display-image" />
+                <button class="prev-button" @onclick="ShowPreviousImage">&#10094;</button>
+                <button class="next-button" @onclick="ShowNextImage">&#10095;</button>
+            </div>
         }
         else
         {
@@ -15,9 +19,13 @@
     }
     else
     {
-        @if (!string.IsNullOrEmpty(ImageBase64))
+        @if (!string.IsNullOrEmpty(CurrentImageBase64))
         {
-            <img src="@ImageBase64" alt="Product Image" class="display-image" />
+            <div class="slideshow-container">
+                <img src="@CurrentImageBase64" alt="Product Image" class="display-image" />
+                <button class="prev-button" @onclick="ShowPreviousImage">&#10094;</button>
+                <button class="next-button" @onclick="ShowNextImage">&#10095;</button>
+            </div>
         }
         else
         {
@@ -36,13 +44,15 @@
     [Parameter]
     public bool IsEditing { get; set; }
 
-    private string ImageBase64 { get; set; }
-    private string ImageId { get; set; }
+    private List<string> ImageIds { get; set; }
+    private string CurrentImageBase64 { get; set; }
+    private int CurrentImageIndex { get; set; } = 0;
 
     protected override async Task OnParametersSetAsync()
     {
-        // Ensure the image is updated when the ImageId or Page data changes
-        ImageId = Page.Data["Product:Image"];
+        // Ensure the images are updated when the Page data changes
+        var imageIdsStr = Page.Data["Product:Image"];
+        ImageIds = imageIdsStr.Split(',').ToList();
         await LoadImageFromDatabase();
     }
 
@@ -50,23 +60,42 @@
     {
         try
         {
-            if (!string.IsNullOrEmpty(ImageId))
+            if (ImageIds != null && ImageIds.Count > 0 && CurrentImageIndex >= 0 && CurrentImageIndex < ImageIds.Count)
             {
+                var currentImageId = ImageIds[CurrentImageIndex];
                 using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
-                var image = await dbContext.Images.FindAsync(Convert.ToInt32(ImageId));
+                var image = await dbContext.Images.FindAsync(Convert.ToInt32(currentImageId));
                 if (image != null && image.Data != null)
                 {
-                    ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
+                    CurrentImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
                 }
                 else
                 {
-                    ImageBase64 = string.Empty;  // Clear image if no image found
+                    CurrentImageBase64 = string.Empty;  // Clear image if no image found
                 }
             }
         }
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error loading image: {ex.Message}");
+        }
+    }
+
+    private async Task ShowNextImage()
+    {
+        if (ImageIds != null && ImageIds.Count > 0)
+        {
+            CurrentImageIndex = (CurrentImageIndex + 1) % ImageIds.Count;  // Loop back to first image
+            await LoadImageFromDatabase();
+        }
+    }
+
+    private async Task ShowPreviousImage()
+    {
+        if (ImageIds != null && ImageIds.Count > 0)
+        {
+            CurrentImageIndex = (CurrentImageIndex - 1 + ImageIds.Count) % ImageIds.Count;  // Loop back to last image
+            await LoadImageFromDatabase();
         }
     }
 
@@ -79,8 +108,10 @@
             var imageData = new byte[file.Size];
             await stream.ReadAsync(imageData);
             var imageId = await SaveImageToDatabase(file.Name, imageData);
-            Page.SetValue("Product:Image", imageId.ToString());
-            ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(imageData)}";
+            ImageIds.Add(imageId);  // Add new image to the list
+            Page.SetValue("Product:Image", string.Join(",", ImageIds));  // Update Page data
+            CurrentImageIndex = ImageIds.Count - 1;  // Show the newly added image
+            CurrentImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(imageData)}";
         }
     }
 
@@ -127,5 +158,30 @@
     .display-image {
         max-width: 100%;
         max-height: 100%;
+    }
+
+    .slideshow-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .prev-button, .next-button {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: rgba(0,0,0,0.5);
+        color: white;
+        border: none;
+        padding: 10px;
+        cursor: pointer;
+    }
+
+    .prev-button {
+        left: 0;
+    }
+
+    .next-button {
+        right: 0;
     }
 </style>

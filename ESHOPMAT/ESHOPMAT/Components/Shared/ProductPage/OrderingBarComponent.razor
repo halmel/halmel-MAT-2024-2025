@@ -8,7 +8,8 @@
     <div class="quantity-section">
         <button class="counter-button" @onclick="Decrement">-</button>
         <div class="counter-value">@Count</div>
-        <button class="counter-button" @onclick="Increment">+</button>
+        <button class="counter-button" @onclick="Increment" disabled="@IsMaxStockReached">+</button>
+        <span class="stock-info">Stock: @StockAvailable</span>
     </div>
     <div class="order-section">
         <button class="order-button" disabled="@IsOrderButtonDisabled" @onclick="AddToCart">Order</button>
@@ -61,7 +62,12 @@
         transition: background-color 0.3s ease;
     }
 
-        .counter-button:hover {
+        .counter-button:disabled {
+            background-color: #b0b0b0;
+            cursor: not-allowed;
+        }
+
+        .counter-button:hover:not(:disabled) {
             background-color: #c0c0c0;
         }
 
@@ -70,6 +76,12 @@
         font-weight: bold;
         text-align: center;
         width: 40px;
+    }
+
+    .stock-info {
+        font-size: 14px;
+        color: #555;
+        margin-left: 10px;
     }
 
     .order-section {
@@ -87,7 +99,12 @@
         transition: background-color 0.3s ease;
     }
 
-        .order-button:hover {
+        .order-button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+
+        .order-button:hover:not(:disabled) {
             background-color: #218838;
         }
 </style>
@@ -103,18 +120,16 @@
     private IDbContextFactory<ProductDbContext> DbProductContextFactory { get; set; }
 
     private int Count { get; set; } = 0;
-
+    private int StockAvailable { get; set; } = 0;
     private decimal ProductPrice { get; set; } = 0m;
-
     private int ProductId { get; set; }
-
     private Product _Product { get; set; }
 
-    private bool IsOrderButtonDisabled => Count <= 0;
+    private bool IsMaxStockReached => Count >= StockAvailable;
+    private bool IsOrderButtonDisabled => Count <= 0 || StockAvailable <= 0;
 
     protected override async Task OnParametersSetAsync()
     {
-        // Reinitialize on parameter changes
         if (Page?.Data?.TryGetValue("Product:Id", out var productIdStr) == true)
         {
             using var context = DbProductContextFactory.CreateDbContext();
@@ -125,6 +140,7 @@
                 {
                     ProductId = _Product.Id;
                     ProductPrice = _Product.Price;
+                    StockAvailable = _Product.Amount; // Fetch stock from database
                 }
             }
         }
@@ -132,8 +148,11 @@
 
     private void Increment()
     {
-        Count++;
-        StateHasChanged(); // Trigger UI update
+        if (Count < StockAvailable) // Prevent exceeding stock
+        {
+            Count++;
+            StateHasChanged();
+        }
     }
 
     private void Decrement()
@@ -141,12 +160,17 @@
         if (Count > 0)
         {
             Count--;
-            StateHasChanged(); // Trigger UI update
+            StateHasChanged();
         }
     }
 
     private async Task AddToCart()
     {
+        if (Count > StockAvailable) // Double-check stock before adding
+        {
+            return;
+        }
+
         var result = await ProtectedSessionStore.GetAsync<List<OrderItem>>("cart");
         var cartItems = result.Success ? result.Value ?? new List<OrderItem>() : new List<OrderItem>();
 
@@ -163,8 +187,8 @@
 
         await ProtectedSessionStore.SetAsync("cart", cartItems);
 
-        // Reset the count after adding to the cart
+        // Reset count after adding to cart
         Count = 0;
-        StateHasChanged(); // Update UI after cart operation
+        StateHasChanged();
     }
 }

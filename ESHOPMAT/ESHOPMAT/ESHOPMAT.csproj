@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>aspnet-ESHOPMAT-c8b18b66-eac5-40c9-9805-2953787221f9</UserSecretsId>
+    <LangVersion>preview</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -25,6 +26,7 @@
   <ItemGroup>
     <Folder Include="Migrations\" />
     <Folder Include="Migrations\OrderDb\" />
+    <Folder Include="Migrations\PageDb\" />
   </ItemGroup>
 
   

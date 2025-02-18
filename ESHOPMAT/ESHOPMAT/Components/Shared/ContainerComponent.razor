@@ -5,6 +5,9 @@
     [Parameter]
     public bool IsEditing { get; set; }
 
+    public int RowCount { get; set; }
+    public int ColCount { get; set; }
+
     public string Name { get; set; }
     public Dictionary<string, string> Data { get; set; }
 
@@ -22,27 +25,26 @@
     public int RowHeight
     {
         get => int.TryParse(Data.GetValueOrDefault(Name + ":rowHeight"), out var value) ? value : 1;
-        set => Data[Name + ":rowHeight"] = value.ToString();
+        set => Data[Name + ":rowHeight"] = value.ToString();                       
     }
 
     protected override async Task OnInitializedAsync()
     {
         Name = Page.Name;
         Data = Page.Data;
-    }
 
+    }
 
 
     private string GetGridStyle()
     {
-        return $"display: grid; grid-template-rows: repeat({Rows}, 1fr); grid-template-columns: repeat({Columns}, 1fr); gap: 5px;";
+        return $"display: grid; grid-template-rows: repeat({Rows}, {RowHeight}px); grid-template-columns: repeat({Columns}, 1fr); gap: 5px;";
     }
 
 }
 
 <style>
     .grid-container {
-        height:fit-content;
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         border-radius: 10px;
         padding: 10px;

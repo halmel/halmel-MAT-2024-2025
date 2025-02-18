@@ -4,10 +4,10 @@
 @implements IAsyncDisposable
 
 <div @ref="wrapperRef"
-     class="@(IsEditing && !IsRoot ? "editable-wrapper" : ""), AllWrap"
-     style="@WrapperStyle; @GetPositionStyle()"
-     @onclick:stopPropagation="true"
-     @onclick="HandleWrapperClick">
+class="@(IsEditing && !IsRoot ? "editable-wrapper" : "") AllWrap"
+style="@WrapperStyle; @GetPositionStyle()"
+@onclick:stopPropagation="true"
+@onclick="HandleWrapperClick">
     @if (IsEditing && !IsRoot)
     {
         <div class="move-handle" @onmousedown:preventDefault @onmousedown="StartMove"></div>
@@ -23,63 +23,62 @@
 
 <style>
     .editable-wrapper {
-        position: relative;
-        border: 2px dashed #ccc;
-        min-height: 50px;
-        min-width: 50px;
-        user-select: none;
+    position: relative;
+    border: 2px dashed #ccc;
+    min-height: 50px;
+    min-width: 50px;
+    user-select: none;
     }
-    .AllWrap{
-        height: fit-content;
-    }
+
+
     .move-handle {
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 20px;
-        background-color: rgba(0,0,0,0.1);
-        cursor: move;
-        z-index: 10;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 20px;
+    background-color: rgba(0,0,0,0.1);
+    cursor: move;
+    z-index: 10;
     }
 
     .resize-handle {
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        background-color: blue;
-        z-index: 10;
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: blue;
+    z-index: 10;
     }
 
     .top-left {
-        top: -5px;
-        left: -5px;
-        cursor: nwse-resize;
+    top: -5px;
+    left: -5px;
+    cursor: nwse-resize;
     }
 
     .top-right {
-        top: -5px;
-        right: -5px;
-        cursor: nesw-resize;
+    top: -5px;
+    right: -5px;
+    cursor: nesw-resize;
     }
 
     .bottom-left {
-        bottom: -5px;
-        left: -5px;
-        cursor: nesw-resize;
+    bottom: -5px;
+    left: -5px;
+    cursor: nesw-resize;
     }
 
     .bottom-right {
-        bottom: -5px;
-        right: -5px;
-        cursor: nwse-resize;
+    bottom: -5px;
+    right: -5px;
+    cursor: nwse-resize;
     }
 
     .editable-wrapper {
-        transition: all 0.1s ease-in-out;
+    transition: all 0.1s ease-in-out;
     }
-
 </style>
+
 @code {
     [Parameter]
     public PageContent Page { get; set; }
@@ -109,8 +108,11 @@
     private IJSObjectReference module;
 
     // Constants for grid and resize configuration
-    private const int GridCellSize = 30;
-    private const int MinimumSize = 1;
+    private int GridCellHeight;
+
+    private int ParentRowCount;// implement this as the max of the position achivable by draging also dont allow negative values
+    private int ParentColCount;
+
 
     private enum ResizeDirection
     {
@@ -118,6 +120,19 @@
         TopRight,
         BottomLeft,
         BottomRight
+    }
+    protected override async Task OnInitializedAsync()
+    {
+
+
+        if (Page.Parent != null)
+        {
+            GridCellHeight = int.Parse(Page.Data[Page.Parent.Name + ":rowHeight"]);
+            ParentRowCount = int.Parse(Page.Data[Page.Parent.Name + ":rows"]);
+            ParentColCount = int.Parse(Page.Data[Page.Parent.Name + ":columns"]);
+
+        }
+
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -138,7 +153,7 @@
 
     private async Task StartMove(MouseEventArgs e)
     {
-        if (!IsEditing || IsRoot) return;
+        if (!IsEditing ) return;
 
         try
         {
@@ -218,14 +233,14 @@
         await OnPageUpdate.InvokeAsync(Page);
     }
 
-
     private (int Row, int Column, int RowSpan, int ColSpan) CalculateMovePosition(int deltaX, int deltaY)
     {
-        int newRow = originalRow + (deltaY / GridCellSize);
-        int newColumn = originalColumn + (deltaX / GridCellSize);
+        int newRow = Math.Max(1, Math.Min(originalRow + (deltaY / GridCellHeight), ParentRowCount - originalRowSpan + 1));
+        int newColumn = Math.Max(1, Math.Min(originalColumn + (deltaX / GridCellHeight), ParentColCount - originalColSpan + 1));
 
         return (newRow, newColumn, originalRowSpan, originalColSpan);
     }
+
 
     [JSInvokable]
     public async Task HandleMouseUp()
@@ -244,8 +259,6 @@
             Console.WriteLine($"Error in HandleMouseUp: {ex.Message}");
         }
     }
-    
-
 
     private async Task StartInteraction(MouseEventArgs e)
     {
@@ -265,9 +278,9 @@
         originalColumn = currentPosition.Column;
 
         // Attach global mouse move and up event listeners
-        try 
+        try
         {
-            await module.InvokeVoidAsync("attachMoveListeners", 
+            await module.InvokeVoidAsync("attachMoveListeners",
                 DotNetObjectReference.Create(this),
                 new { clientX = originalMouseX, clientY = originalMouseY });
         }
@@ -289,7 +302,7 @@
     {
         if (IsEditing && !IsRoot)
         {
-            await (module?.InvokeVoidAsync("focus", wrapperRef) 
+            await (module?.InvokeVoidAsync("focus", wrapperRef)
                 ?? JSRuntime.InvokeVoidAsync("window.resizeInterop.focus", wrapperRef));
         }
     }
@@ -297,13 +310,13 @@
     private (int Row, int Column, int RowSpan, int ColSpan) CalculateNewMovement(int deltaX, int deltaY)
     {
         // Calculate grid cell movement
-        int rowChange = deltaY / GridCellSize;
-        int colChange = deltaX / GridCellSize;
+        int rowChange = deltaY / GridCellHeight;
+        int colChange = deltaX / GridCellHeight;
 
         return (
-            originalRow + rowChange, 
-            originalColumn + colChange, 
-            originalRowSpan, 
+            originalRow + rowChange,
+            originalColumn + colChange,
+            originalRowSpan,
             originalColSpan
         );
     }
@@ -315,37 +328,35 @@
         int newRowSpan = originalRowSpan;
         int newColSpan = originalColSpan;
 
-        // Adjust based on resize direction
         switch (currentResizeDirection)
         {
             case ResizeDirection.TopLeft:
-                newRow += deltaY / GridCellSize;
-                newRowSpan -= deltaY / GridCellSize;
-                newColumn += deltaX / GridCellSize;
-                newColSpan -= deltaX / GridCellSize;
+                newRow = originalRow + deltaY / GridCellHeight;
+                newRowSpan = originalRowSpan - deltaY / GridCellHeight;
+                newColumn = originalColumn + deltaX / GridCellHeight;
+                newColSpan = originalColSpan - deltaX / GridCellHeight;
                 break;
             case ResizeDirection.TopRight:
-                newRow += deltaY / GridCellSize;
-                newRowSpan -= deltaY / GridCellSize;
-                newColSpan += deltaX / GridCellSize;
+                newRow = originalRow + deltaY / GridCellHeight;
+                newRowSpan = originalRowSpan - deltaY / GridCellHeight;
+                newColSpan = Math.Min(originalColSpan + deltaX / GridCellHeight, ParentColCount - newColumn + 1);
                 break;
             case ResizeDirection.BottomLeft:
-                newRowSpan += deltaY / GridCellSize;
-                newColumn += deltaX / GridCellSize;
-                newColSpan -= deltaX / GridCellSize;
+                newRowSpan = Math.Min(originalRowSpan + deltaY / GridCellHeight, ParentRowCount - originalRow + 1);
+                newColumn = originalColumn + deltaX / GridCellHeight;
+                newColSpan = originalColSpan - deltaX / GridCellHeight;
                 break;
             case ResizeDirection.BottomRight:
-                newRowSpan += deltaY / GridCellSize;
-                newColSpan += deltaX / GridCellSize;
+                newRowSpan = Math.Min(originalRowSpan + deltaY / GridCellHeight, ParentRowCount - newRow + 1);
+                newColSpan = Math.Min(originalColSpan + deltaX / GridCellHeight, ParentColCount - newColumn + 1);
                 break;
         }
 
-        // Ensure minimum sizes
-        newRowSpan = Math.Max(MinimumSize, newRowSpan);
-        newColSpan = Math.Max(MinimumSize, newColSpan);
 
         return (newRow, newColumn, newRowSpan, newColSpan);
     }
+
+
 
     private string BuildResizeInteropScript()
     {
@@ -385,7 +396,6 @@
             }";
     }
 
-
     private (int Row, int Column, int RowSpan, int ColSpan) GetCurrentPosition()
     {
         if (Page.Data.TryGetValue($"{Page.Name}:position", out var position))
@@ -412,7 +422,6 @@
         WrapperStyle = $"grid-row: {position.Row} / span {position.RowSpan}; grid-column: {position.Column} / span {position.ColSpan};";
     }
 
-
     // Methods for dynamic component rendering
     private Type GetComponentType(string type)
     {
@@ -422,7 +431,6 @@
             "Counter" => typeof(CounterComponent),
             "TextBlock" => typeof(TextBlockComponent),
             "Image" => typeof(ImageComponent),
-            // "ProductPage" => typeof(ProductPageComponent),
             "OrderingBar" => typeof(OrderingBarComponent),
             "ProductTitleDescription" => typeof(ProductTitleDescriptionComponent),
             "ProductImage" => typeof(ProductImg),
@@ -454,11 +462,6 @@
             parameters[nameof(ImageComponent.Page)] = Page;
             parameters[nameof(ImageComponent.IsEditing)] = IsEditing;
         }
-        // else if (Page.Type == "ProductPage")
-        // {
-        //     parameters[nameof(ProductPageComponent.Page)] = Page;
-        //     parameters[nameof(ProductPageComponent.IsEditing)] = IsEditing;
-        // }
         else if (Page.Type == "OrderingBar")
         {
             parameters[nameof(OrderingBarComponent.Page)] = Page;

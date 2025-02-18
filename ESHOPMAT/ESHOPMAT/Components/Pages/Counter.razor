@@ -1,4 +1,4 @@
-﻿@page "/counter"
+﻿@page "/"
 @inject IDbContextFactory<PageDbContext> DbPageContextFactory
 @using ESHOPMAT.Models
 @using Microsoft.AspNetCore.Components
@@ -27,7 +27,7 @@ else
         PageContentDictionaryCache.Initialize(context);
 
         var allPages = context.Pages.ToList();
-        var existingTemplate = allPages.Where(p => p.Name == templateName).First();
+        var existingTemplate = allPages.FirstOrDefault(p => p.Name == templateName);
 
         if (existingTemplate != null)
         {

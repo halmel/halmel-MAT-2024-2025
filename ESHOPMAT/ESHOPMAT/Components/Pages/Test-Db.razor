@@ -16,45 +16,62 @@
 <p>@statusMessage</p>
 
 @code {
-    private string statusMessage;
+    private string statusMessage = "Waiting for action...";
 
     private async Task ClearPageDbContext()
     {
-        using var context = PageDbContextFactory.CreateDbContext();
-        context.RemoveRange(context.Pages); // Assuming there's a DbSet<Pages> in PageDbContext
-        await context.SaveChangesAsync();
+        await ClearDatabase(PageDbContextFactory, context => context.Set<PageContent>());
         statusMessage = "Page database cleared.";
     }
 
     private async Task ClearProductDbContext()
     {
-        using var context = ProductDbContextFactory.CreateDbContext();
-        context.RemoveRange(context.Products); // Assuming there's a DbSet<Products> in ProductDbContext
-        await context.SaveChangesAsync();
+        await ClearDatabase(ProductDbContextFactory, context => context.Set<Product>());
         statusMessage = "Product database cleared.";
     }
 
     private async Task ClearImageDbContext()
     {
-        using var context = ImageDbContextFactory.CreateDbContext();
-        context.RemoveRange(context.Images); // Assuming there's a DbSet<Images> in ImageDbContext
-        await context.SaveChangesAsync();
+        await ClearDatabase(ImageDbContextFactory, context => context.Set<PageImage>());
         statusMessage = "Image database cleared.";
     }
 
     private async Task ClearOrderDbContext()
     {
-        using var context = OrderDbContextFactory.CreateDbContext();
-        context.RemoveRange(context.Orders); // Assuming there's a DbSet<Orders> in OrderDbContext
-        await context.SaveChangesAsync();
+        await ClearDatabase(OrderDbContextFactory, context => context.Set<Order>());
         statusMessage = "Order database cleared.";
     }
 
     private async Task ClearEmailDbContext()
     {
-        using var context = EmailDbContextFactory.CreateDbContext();
-        context.RemoveRange(context.EmailTemplates); // Assuming there's a DbSet<EmailTemplates> in EmailDbContext
-        await context.SaveChangesAsync();
+        await ClearDatabase(EmailDbContextFactory, context => context.Set<EmailTemplate>());
         statusMessage = "Email database cleared.";
+    }
+
+    private async Task ClearDatabase<TContext, TEntity>(IDbContextFactory<TContext> dbContextFactory, Func<TContext, DbSet<TEntity>> getDbSet)
+        where TContext : DbContext
+        where TEntity : class
+    {
+        try
+        {
+            using var context = dbContextFactory.CreateDbContext();
+            var dbSet = getDbSet(context);
+
+            if (dbSet != null)
+            {
+                context.RemoveRange(dbSet);
+                await context.SaveChangesAsync();
+            }
+            else
+            {
+                statusMessage = $"Error: Table not found in {typeof(TContext).Name}.";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error clearing database: {ex.Message}";
+        }
+
+        StateHasChanged(); // Ensure UI updates
     }
 }

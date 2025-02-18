@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ESHOPMAT.Migrations.PageDb
 {
     [DbContext(typeof(PageDbContext))]
-    [Migration("20250113200025_InitialCreate75")]
-    partial class InitialCreate75
+    [Migration("20250216082941_InitialCreate1")]
+    partial class InitialCreate1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -33,6 +33,15 @@ namespace ESHOPMAT.Migrations.PageDb
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("DevPageId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("DevSharedId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDev")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsRoot")
                         .HasColumnType("bit");
 
@@ -51,6 +60,8 @@ namespace ESHOPMAT.Migrations.PageDb
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DevPageId");
 
                     b.HasIndex("ParentId");
 
@@ -74,10 +85,17 @@ namespace ESHOPMAT.Migrations.PageDb
 
             modelBuilder.Entity("ESHOPMAT.Models.PageContent", b =>
                 {
+                    b.HasOne("ESHOPMAT.Models.PageContent", "DevPage")
+                        .WithMany()
+                        .HasForeignKey("DevPageId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("ESHOPMAT.Models.PageContent", "Parent")
                         .WithMany("Children")
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("DevPage");
 
                     b.Navigation("Parent");
                 });

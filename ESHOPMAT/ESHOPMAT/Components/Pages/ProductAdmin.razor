@@ -1,6 +1,7 @@
 ﻿@page "/admin/products"
 @inject IDbContextFactory<ImageDbContext> DbImageContextFactory
 @inject IDbContextFactory<ProductDbContext> DbProductContextFactory
+@inject IDbContextFactory<PageDbContext> DbPageContextFactory
 
 <h3>Product Management</h3>
 
@@ -235,6 +236,16 @@ OnSave="@HandleSaveProduct" />
             }
 
             await dbContext.SaveChangesAsync();
+
+            await using  var PageDb = await DbPageContextFactory.CreateDbContextAsync();
+            var x = PageDb.Pages.FirstOrDefault(x => x.ProductId == product.Id&& x.IsDev == false);
+            if (x != null)
+            {
+            x.DevPage.SetProductData(product);
+            PageDb.Update(x);
+            PageDb.SaveChanges();
+                
+            }
             await LoadProductsAsync();
         }
         catch (Exception ex)

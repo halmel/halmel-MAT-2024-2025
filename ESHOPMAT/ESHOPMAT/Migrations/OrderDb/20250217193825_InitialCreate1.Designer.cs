@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ESHOPMAT.Migrations.OrderDb
 {
     [DbContext(typeof(OrderDbContext))]
-    [Migration("20250112160943_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20250217193825_InitialCreate1")]
+    partial class InitialCreate1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -81,6 +81,9 @@ namespace ESHOPMAT.Migrations.OrderDb
                         .HasColumnType("int");
 
                     b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Stock")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
