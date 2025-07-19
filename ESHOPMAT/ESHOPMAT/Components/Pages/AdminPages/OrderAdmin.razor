@@ -1,0 +1,127 @@
+﻿@page "/admin/orders"
+@using ESHOPMAT.Models
+@inject EmailService EmailService
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+
+<h3>Orders</h3>
+
+@if (orders == null)
+{
+    <p>Loading...</p>
+}
+else if (!orders.Any())
+{
+    <p>No orders found.</p>
+}
+else
+{
+    <div class="order-list">
+        @foreach (var order in orders)
+        {
+            <div class="order-box mb-3 border border-dark" style="cursor: pointer;">
+                <!-- Header with conditional bottom border -->
+                <div class="order-header p-3 @(expandedOrder?.Id == order.Id ? "border-bottom" : "")" @onclick="@(() => ToggleEmailEditor(order))" >
+                    <div class="row">
+                        <div class="col"><strong>ID:</strong> @order.Id</div>
+                        <div class="col"><strong>Name:</strong> @order.Name</div>
+                        <div class="col"><strong>Address:</strong> @order.Address</div>
+                        <div class="col text-end" @onclick:stopPropagation="true" >
+                            <OrderStatusManager CurrentStatus="@order.OrderStatus" 
+                                                OnStatusChanged="@((newStatus) => UpdateOrderStatus(order, newStatus))" />
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col"><strong>Phone:</strong> @order.TelephoneNumber</div>
+                        <div class="col"><strong>Date:</strong> @order.OrderDate.ToShortDateString()</div>
+                        <div class="col"><strong>Total:</strong> @order.CalculateTotal().ToString("C")</div>
+                        <div class="col text-end">
+                            <i class="fas fa-bars"></i>
+                        </div>
+                    </div>
+                </div>
+
+                @if (expandedOrder?.Id == order.Id)
+                {
+                    <div class="p-3">
+                        <OrderItemList Order="@order"></OrderItemList>
+                        <EmailTemplateEditor @ref="emailEditorRef" />
+                        <button class="btn btn-primary mt-2" @onclick:stopPropagation="true" @onclick="SendEmailToOrderCustomer">Send Email</button>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+<style>
+    .order-box {
+        border-radius: 0.25rem;
+        overflow: visible;
+    }
+
+    .order-header {
+        background-color: white;
+        transition: all 0.3s ease;
+    }
+
+    .border-bottom {
+        border-bottom: 1px solid #dee2e6 !important;
+        padding-bottom: 1rem;
+    }
+</style>
+@code {
+    private List<Order> orders;
+    private Order expandedOrder;
+    private EmailTemplateEditor emailEditorRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var context = DbContextFactory.CreateDbContext();
+        orders = await context.Orders.Include(o => o.OrderItems).ToListAsync();
+    }
+
+    private void ToggleEmailEditor(Order order)
+    {
+        if (expandedOrder?.Id == order.Id)
+        {
+             expandedOrder = null;
+        }
+        else
+        {
+            expandedOrder = order;
+        }
+    }
+
+    private async Task SendEmailToOrderCustomer()
+    {
+        string currentHtmlContent = await emailEditorRef.GetCurrentHtmlContentAsync();
+        string currentSubject = emailEditorRef.GetCurrentSubject();
+
+        var emailValues = new EmailValues
+            {
+                ClientName = expandedOrder.Name,
+                SentDate = DateTime.Now.ToString()
+            };
+
+        var template = new EmailTemplate
+            {
+                Subject = currentSubject,
+                HtmlContent = currentHtmlContent
+            };
+
+        await EmailService.SendEmailAsync(expandedOrder.Address, template, emailValues);
+        expandedOrder = null;
+    }
+
+    private async Task UpdateOrderStatus(Order order, OrderStatus newStatus)
+    {
+        if (order.OrderStatus != newStatus)
+        {
+            order.OrderStatus = newStatus;
+
+            await using var context = await DbContextFactory.CreateDbContextAsync();
+            context.Orders.Update(order);
+            await context.SaveChangesAsync();
+        }
+    }
+
+}

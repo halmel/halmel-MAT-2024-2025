@@ -9,6 +9,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Blazicons.Lucide" Version="1.8.24" />
+    <PackageReference Include="BlazorCalendar" Version="2.7.1" />
     <PackageReference Include="Blazored.Modal" Version="7.3.1" />
     <PackageReference Include="Blazored.TextEditor" Version="1.1.2" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="9.0.0" />
@@ -24,10 +26,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Components\Shared\Components\" />
     <Folder Include="Migrations\" />
-    <Folder Include="Migrations\OrderDb\" />
-    <Folder Include="Migrations\PageDb\" />
   </ItemGroup>
 
   

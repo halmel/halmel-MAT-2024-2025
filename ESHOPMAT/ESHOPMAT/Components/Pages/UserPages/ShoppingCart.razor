@@ -3,6 +3,7 @@
 @using Microsoft.EntityFrameworkCore.Metadata.Internal
 @using SendGrid.Helpers.Mail
 @inject ProtectedSessionStorage ProtectedSessionStore
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <h2>Shopping Cart</h2>
 
@@ -27,21 +28,21 @@ else
             @foreach (var item in CartItems)
             {
                 <tr>
-                    <td>@item.Name</td>
-                    <td>@item.Price.ToString("C")</td>
+                    <td>@item.Product.Name</td>
+                    <td>@item.Product.Price.ToString("C")</td>
                     <td>
                         <div class="counter-container">
                             <button class="counter-button" @onclick="() => UpdateQuantity(item, -1)">-</button>
                             <div class="counter-value">@item.Quantity</div>
                             <button class="counter-button" @onclick="() => UpdateQuantity(item, 1)" disabled="@IsMaxStockReached(item)">+</button>
                         </div>
-                        @if (item.Quantity > item.Stock)
+                        @if (item.Quantity > item.Product.Amount)
                         {
                             <p class="error-message">Not enough stock available!</p>
                         }
                     </td>
-                    <td>@item.Stock</td> <!-- Displays available stock -->
-                    <td>@((item.Price * item.Quantity).ToString("C"))</td>
+                    <td>@item.Product.Amount</td> <!-- Displays available stock -->
+                    <td>@((item.Product.Price * item.Quantity).ToString("C"))</td>
                     <td><button class="remove-button" @onclick="() => RemoveFromCart(item)">Remove</button></td>
                 </tr>
             }
@@ -71,11 +72,9 @@ else
 }
 
 @code {
-    [Inject] private IDbContextFactory<OrderDbContext> DbOrderContextFactory { get; set; }
-    [Inject] private IDbContextFactory<ProductDbContext> DbProductContextFactory { get; set; }
 
     private List<OrderItem> CartItems { get; set; } = new List<OrderItem>();
-    private decimal TotalCost => CartItems.Sum(item => item.Price * item.Quantity);
+    private decimal TotalCost => CartItems.Sum(item => item.Product.Price * item.Quantity);
     private ContactInformation ContactInfo { get; set; } = new ContactInformation();
     private string ErrorMessage { get; set; } = string.Empty;
 
@@ -87,13 +86,13 @@ else
             CartItems = result.Success ? result.Value ?? new List<OrderItem>() : new List<OrderItem>();
 
             // Fetch stock info from database
-            using var productDb = DbProductContextFactory.CreateDbContext();
+            using var productDb = DbContextFactory.CreateDbContext();
             foreach (var item in CartItems)
             {
                 var product = await productDb.Products.FindAsync(item.ProductId);
                 if (product != null)
                 {
-                    item.Stock = product.Amount; // Set available stock
+                    item.Product.Amount = product.Amount; // Set available stock
                 }
             }
 
@@ -104,14 +103,14 @@ else
     private void UpdateQuantity(OrderItem item, int change)
     {
         var newQuantity = item.Quantity + change;
-        if (newQuantity >= 0 && newQuantity <= item.Stock) // Prevent exceeding stock
+        if (newQuantity >= 0 && newQuantity <= item.Product.Amount) // Prevent exceeding stock
         {
             item.Quantity = newQuantity;
         }
         StateHasChanged();
     }
 
-    private bool IsMaxStockReached(OrderItem item) => item.Quantity >= item.Stock;
+    private bool IsMaxStockReached(OrderItem item) => item.Quantity >= item.Product.Amount;
 
     private void RemoveFromCart(OrderItem item)
     {
@@ -121,10 +120,9 @@ else
 
     private async Task SubmitOrder()
     {
-        using var orderDb = DbOrderContextFactory.CreateDbContext();
-        using var productDb = DbProductContextFactory.CreateDbContext();
+        using var dbContext = DbContextFactory.CreateDbContext();
 
-        var productList = await productDb.Products.ToListAsync();
+        var productList = await dbContext.Products.ToListAsync();
         List<Product> toUpdate = new List<Product>();
 
         foreach (var item in CartItems)
@@ -132,7 +130,7 @@ else
             var product = productList.FirstOrDefault(x => x.Id == item.ProductId);
             if (product == null || product.Amount < item.Quantity)
             {
-                ErrorMessage = $"Not enough stock available for {item.Name}. Please adjust your order.";
+                ErrorMessage = $"Not enough stock available for {item.Product.Name}. Please adjust your order.";
                 StateHasChanged();
                 return;
             }
@@ -149,14 +147,14 @@ else
                 OrderItems = CartItems.ToList()
             };
 
-        orderDb.Orders.Add(order);
+        dbContext.Orders.Add(order);
 
         foreach (var item in toUpdate)
         {
-            productDb.Products.Update(item);
+            dbContext.Products.Update(item);
         }
-        await productDb.SaveChangesAsync();
-        await orderDb.SaveChangesAsync();
+        await dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync();
 
         await ProtectedSessionStore.DeleteAsync("cart");
         ErrorMessage = string.Empty;

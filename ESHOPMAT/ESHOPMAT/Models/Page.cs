@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.IdentityModel.Tokens;
 using Mono.TextTemplating.CodeCompilation;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel.DataAnnotations;
@@ -28,7 +29,7 @@ namespace ESHOPMAT.Models
 
         public Guid DevSharedId { get; set; }
 
-        public PageDbContext Context { get; set; }
+        public AppDbContext Context { get; set; }
 
         [NotMapped]
         public Dictionary<string, string> Data
@@ -238,7 +239,7 @@ namespace ESHOPMAT.Models
 
         // Constructor for creating root component
         // Constructor for creating root component
-        public PageContent(PageSettings settings, PageDbContext c)
+        public PageContent(PageSettings settings, AppDbContext c)
         {
             Context = c;
             if (settings.IsRoot)
@@ -425,146 +426,9 @@ namespace ESHOPMAT.Models
             return false;
         }
 
-        public PageSettings GetPageSettings()
-        {
-            // Create a new PageSettings object
-            var settings = new PageSettings
-            {
-                Name = Name,
-                Type = Data.TryGetValue($"{Name}:type", out var typeString)
-    && Enum.TryParse<ComponentType>(typeString, true, out var typeEnum)
-    ? typeEnum
-    : ComponentType.Unknown,
-
-                RowCount = Data.TryGetValue($"{Name}:rows", out var rows) && int.TryParse(rows, out var rowCount) ? rowCount : 1,
-                ColCount = Data.TryGetValue($"{Name}:columns", out var columns) && int.TryParse(columns, out var colCount) ? colCount : 1,
-                IsRoot = Data.TryGetValue($"{Name}:isRoot", out var isRoot) && bool.TryParse(isRoot, out var root) && root
-            };
-
-            // If position data exists, parse it and set the row, col, rowSpan, and colSpan
-            if (Data.TryGetValue($"{Name}:position", out var positionData))
-            {
-                var parts = positionData.Split(',');
-                if (parts.Length == 4)
-                {
-                    settings.Row = int.TryParse(parts[0], out var row) ? row : 1;
-                    settings.Col = int.TryParse(parts[1], out var col) ? col : 1;
-                    settings.RowSpan = int.TryParse(parts[2], out var rowSpan) ? rowSpan : 1;
-                    settings.ColSpan = int.TryParse(parts[3], out var colSpan) ? colSpan : 1;
-                }
-            }
-
-            // Return the constructed PageSettings object
-            return settings;
-        }
 
 
 
-
-
-    }
-
-    public class PageContentConfiguration : IEntityTypeConfiguration<PageContent>
-    {
-        public void Configure(EntityTypeBuilder<PageContent> builder)
-        {
-            builder.HasKey(p => p.Id);
-
-            // Parent-Child Relationship (Restrict Delete to Prevent Cycles)
-            builder.HasOne(p => p.Parent)
-                .WithMany(p => p.Children)
-                .HasForeignKey(p => p.ParentId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // DevPage Relationship (Restrict Delete to Prevent Circular References)
-            builder.HasOne(p => p.DevPage)
-                .WithMany()  // No inverse navigation
-                .HasForeignKey(p => p.DevPageId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.Property(p => p.SharedId).IsRequired();
-        }
-    }
-
-    public class PageContentDictionaryConfiguration : IEntityTypeConfiguration<PageContentDictionary>
-    {
-        public void Configure(EntityTypeBuilder<PageContentDictionary> builder)
-        {
-            builder.HasKey(d => d.SharedId);
-
-            // Store dictionary as JSON string
-            builder.Property(d => d.Data)
-                .HasConversion(
-                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
-                    v => System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(v, (System.Text.Json.JsonSerializerOptions?)null))
-                .IsRequired();
-        }
-    }
-
-    public class PageDbContext : DbContext
-    {
-        public PageDbContext(DbContextOptions<PageDbContext> options) : base(options)
-        {
-        }
-
-        public DbSet<PageContent> Pages { get; set; }
-        public DbSet<PageContentDictionary> PageContentDictionaries { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.ApplyConfiguration(new PageContentConfiguration());
-            modelBuilder.ApplyConfiguration(new PageContentDictionaryConfiguration());
-        }
-
-        /// <summary>
-        /// Deletes a page and its related data, ensuring cache is updated.
-        /// </summary>
-        public async Task DeletePageAsync(int pageId)
-        {
-            var page = await Pages
-                .Include(p => p.Children)  // Load child pages
-                .Include(p => p.DevPage)   // Load associated DevPage
-                    .ThenInclude(d => d.Children)  // Load children of the DevPage
-                .FirstOrDefaultAsync(p => p.Id == pageId);
-
-            if (page == null)
-                throw new KeyNotFoundException("Page not found.");
-
-            // Remove associated PageContentDictionary entries from cache and DB
-            PageContentDictionaryCache.Remove(page.SharedId, this);
-
-            if (page.DevPage != null)
-            {
-                PageContentDictionaryCache.Remove(page.DevPage.SharedId, this);
-            }
-
-            // Recursively delete child pages of the current page
-            foreach (var child in page.Children.ToList())
-            {
-                await DeletePageAsync(child.Id);
-            }
-
-            // If the page has a DevPage, delete its child pages recursively as well
-            if (page.DevPage != null)
-            {
-                foreach (var devChild in page.DevPage.Children.ToList())
-                {
-                    await DeletePageAsync(devChild.Id);
-                }
-
-                // Remove the DevPage after its children are deleted
-                Pages.Remove(page.DevPage);
-            }
-
-            // Ensure the page is not referenced as a DevPage by other pages
-            if (Pages.Any(p => p.DevPageId == page.Id))
-                throw new InvalidOperationException("Cannot delete a page that is referenced as a DevPage. Set references to NULL first.");
-
-            // Remove the main page
-            Pages.Remove(page);
-
-            await SaveChangesAsync();
-        }
 
     }
 
@@ -575,7 +439,7 @@ namespace ESHOPMAT.Models
     {
         private static readonly ConcurrentDictionary<Guid, PageContentDictionary> _cache = new();
 
-        public static void Initialize(PageDbContext context)
+        public static void Initialize(AppDbContext context)
         {
             var dictionaries = context.PageContentDictionaries.ToList();
             foreach (var dictionary in dictionaries)
@@ -587,18 +451,11 @@ namespace ESHOPMAT.Models
         public static IReadOnlyDictionary<Guid, PageContentDictionary> GetAll() =>
             new ReadOnlyDictionary<Guid, PageContentDictionary>(_cache);
 
-        public static PageContentDictionary Get(Guid sharedId)
-        {
-            return _cache.TryGetValue(sharedId, out var dictionary) ? dictionary : null;
-        }
+        public static PageContentDictionary Get(Guid sharedId) =>
+            _cache.TryGetValue(sharedId, out var dictionary) ? dictionary : null;
 
-        public static void Update(Guid sharedId, Dictionary<string, string> data, PageDbContext context)
+        public static void Update(Guid sharedId, Dictionary<string, string> data, AppDbContext context)
         {
-            if (context == null)
-            {
-                throw new InvalidOperationException("The database context cannot be null when updating the cache.");
-            }
-
             if (_cache.TryGetValue(sharedId, out var dictionary))
             {
                 dictionary.Data = data;
@@ -614,7 +471,7 @@ namespace ESHOPMAT.Models
             context.SaveChanges();
         }
 
-        public static void Remove(Guid sharedId, PageDbContext context)
+        public static void Remove(Guid sharedId, AppDbContext context)
         {
             if (_cache.TryRemove(sharedId, out var dictionary))
             {
@@ -623,6 +480,7 @@ namespace ESHOPMAT.Models
             }
         }
     }
+
 
     public class PageSettings
     {

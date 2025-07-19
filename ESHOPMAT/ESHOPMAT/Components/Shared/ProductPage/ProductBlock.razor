@@ -1,4 +1,5 @@
-﻿<div class="product-block" @onclick="HandleClick">
+﻿@inject IDbContextFactory<AppDbContext> DbContextFactory
+<div class="product-block" @onclick="HandleClick">
     <div class="product-image-container">
         <img src="@ImageBase64" alt="Product Image" class="product-image" />
     </div>
@@ -9,8 +10,6 @@
 </div>
 
 @code {
-    [Inject]
-    private IDbContextFactory<ImageDbContext> DbImageContextFactory { get; set; }
 
     [Parameter]
     public Product Product { get; set; }
@@ -31,7 +30,7 @@
         {
             if (Product.ImageIds.Length > 0)
             {
-                using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
+                using var dbContext = await DbContextFactory.CreateDbContextAsync();
                 var image = await dbContext.Images.FindAsync(Product.ImageIds[0]);
                 if (image != null && image.Data != null)
                 {

@@ -1,6 +1,5 @@
 ﻿@page "/page-viewer"
-@inject ESHOPMAT.Models.PageDbContext DbContext
-@inject ESHOPMAT.Models.PageDbContext DbContext2
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject NavigationManager Navigation
 
 @if (Pages.Count == 0)
@@ -28,25 +27,28 @@ else
     private ESHOPMAT.Models.PageContent Root => Pages.Count > 0 ? Pages[CurrentPageIndex] : CreateDefaultPage();
     private bool HasPreviousPage => CurrentPageIndex > 0;
     private bool HasNextPage => CurrentPageIndex < Pages.Count - 1;
+    private AppDbContext dbContext { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        PageContentDictionaryCache.Initialize(DbContext);
+         dbContext = DbContextFactory.CreateDbContext();
+
+        PageContentDictionaryCache.Initialize(dbContext);
         Pages = FetchRootPages();
 
         if (Pages.Count == 0)
         {
             var defaultPage = CreateDefaultPage();
             Pages.Add(defaultPage);
-            await DbContext.Pages.AddAsync(defaultPage);
-            await DbContext.SaveChangesAsync();
+            await dbContext.Pages.AddAsync(defaultPage);
+            await dbContext.SaveChangesAsync();
         }
     }
     private List<PageContent> FetchRootPages()
     {
         // For example, assume `PageContentService.GetAllPages()` fetches all pages
 
-        var allPages = DbContext.Pages.ToList();
+        var allPages = dbContext.Pages.ToList();
         return allPages.Where(page => page.IsRoot).ToList();
     }
     private ESHOPMAT.Models.PageContent CreateDefaultPage()
@@ -58,7 +60,7 @@ else
                 RowCount = 16,
                 ColCount = 16,
                 IsRoot = true
-            }, DbContext2);
+            }, dbContext);
 
         var nestedContainer = new PageSettings
             {
@@ -81,20 +83,20 @@ else
         if (Pages.Count == 0) return;
 
         var currentPage = Pages[CurrentPageIndex];
-        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
+        var existingPage = await dbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
 
         if (existingPage != null)
         {
-            DbContext.Entry(existingPage).State = EntityState.Detached; // Detach to avoid conflicts
-            DbContext.Pages.Update(currentPage);
+            dbContext.Entry(existingPage).State = EntityState.Detached; // Detach to avoid conflicts
+            dbContext.Pages.Update(currentPage);
         }
         else
         {
-            await DbContext.Pages.AddAsync(currentPage);
+            await dbContext.Pages.AddAsync(currentPage);
         }
 
-        await DbContext.SaveChangesAsync();
-        PageContentDictionaryCache.Update(currentPage.SharedId, currentPage.Data, DbContext);
+        await dbContext.SaveChangesAsync();
+        PageContentDictionaryCache.Update(currentPage.SharedId, currentPage.Data, dbContext);
     }
 
     private async Task DeletePage()
@@ -102,12 +104,12 @@ else
         if (Pages.Count == 0) return;
 
         var currentPage = Pages[CurrentPageIndex];
-        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
+        var existingPage = await dbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
 
         if (existingPage != null)
         {
-            DbContext.Pages.Remove(existingPage);
-            await DbContext.SaveChangesAsync();
+            dbContext.Pages.Remove(existingPage);
+            await dbContext.SaveChangesAsync();
         }
 
         Pages.RemoveAt(CurrentPageIndex);
@@ -181,12 +183,12 @@ else
         try
         {
             // Ensure the child entity is loaded and tracked by the DbContext
-            var trackedChild = await DbContext.Pages.FindAsync(child.Id);
+            var trackedChild = await dbContext.Pages.FindAsync(child.Id);
             if (trackedChild != null)
             {
                 // Remove the child entity from the database
-                DbContext.Pages.Remove(trackedChild);
-                await DbContext.SaveChangesAsync();
+                dbContext.Pages.Remove(trackedChild);
+                await dbContext.SaveChangesAsync();
 
                 // Recursively delete related data
                 DeleteChildDataRecursively(trackedChild);

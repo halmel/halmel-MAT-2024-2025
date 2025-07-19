@@ -1,0 +1,125 @@
+﻿@using ESHOPMAT.Models
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@page "/orderitems"
+
+@if (Order?.OrderItems == null || Order.OrderItems.Count == 0)
+{
+    <p>No order items to display.</p>
+}
+else
+{
+    <div class="order-item-list">
+        @foreach (var item in Order.OrderItems)
+        {
+            <div class="order-item-block">
+                <div class="image-container">
+                    <img src="@GetImageBase64(item.Id)" alt="Product Image" class="order-item-image" />
+                </div>
+                <div class="order-info">
+                    <h4>@item.Product.Name</h4>
+                    <p><strong>Product ID:</strong> @item.ProductId</p>
+                    <p><strong>Price per unit:</strong> @item.Product.Price.ToString("C")</p>
+                    <p><strong>Quantity:</strong> @item.Quantity</p>
+                    <p><strong>Total:</strong> @item.TotalPrice().ToString("C")</p>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<style>
+    .order-item-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        justify-content: flex-start;
+    }
+
+    .order-item-block {
+        width: 250px;
+        padding: 15px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #f9f9f9;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .image-container {
+        width: 100%;
+        height: 180px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+    .order-item-image {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+    }
+
+    .order-info {
+        text-align: center;
+    }
+
+        .order-info h4 {
+            margin: 5px 0;
+            font-size: 18px;
+        }
+
+        .order-info p {
+            margin: 4px 0;
+            color: #555;
+            font-size: 14px;
+        }
+</style>
+
+@code {
+    [Parameter]
+    public Order Order { get; set; }
+
+    private Dictionary<int, string> OrderItemImages { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadImages();
+    }
+
+    private async Task LoadImages()
+    {
+        try
+        {
+            using var dbContext = await DbContextFactory.CreateDbContextAsync();
+
+            foreach (var item in Order.OrderItems)
+            {
+                // Assuming ProductId maps to ImageIds and image is stored using ProductId logic
+                var image = await dbContext.Images.FindAsync(item.ProductId);
+                if (image != null && image.Data != null)
+                {
+                    OrderItemImages[item.Id] = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
+                }
+                else
+                {
+                    OrderItemImages[item.Id] = "/images/no-image.jpg";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading images: {ex.Message}");
+        }
+    }
+
+    private string GetImageBase64(int orderItemId)
+    {
+        return OrderItemImages.TryGetValue(orderItemId, out var imageBase64)
+            ? imageBase64
+            : "/images/no-image.jpg";
+    }
+}

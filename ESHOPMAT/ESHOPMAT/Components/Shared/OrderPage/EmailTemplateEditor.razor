@@ -1,6 +1,6 @@
 ﻿@using Blazored.TextEditor
 @using ESHOPMAT.Models
-@inject EmailDbContext DbContext
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject NavigationManager Navigation
 
 <div class="template-container rounded">
@@ -57,16 +57,19 @@
     public EmailTemplate currentTemplate { get; set; } = new EmailTemplate();
     private bool templatesVisible = false;
     private BlazoredTextEditor BlazoredTextEditorRef = default!;
+    AppDbContext dbContext { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
+         dbContext = DbContextFactory.CreateDbContext();
+
         await LoadTemplates();
         currentTemplate = new EmailTemplate();  // Default to new template
     }
 
     private async Task LoadTemplates()
     {
-        templates = await DbContext.EmailTemplates.ToListAsync();
+        templates = await dbContext.EmailTemplates.ToListAsync();
     }
 
     private void ToggleTemplateList()
@@ -87,14 +90,14 @@
 
         if (currentTemplate.Id == 0)
         {
-            DbContext.EmailTemplates.Add(currentTemplate);
+            dbContext.EmailTemplates.Add(currentTemplate);
         }
         else
         {
-            DbContext.EmailTemplates.Update(currentTemplate);
+            dbContext.EmailTemplates.Update(currentTemplate);
         }
 
-        await DbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync();
     }
     // Method to get the current HTML content from the editor
     public async Task<string> GetCurrentHtmlContentAsync()

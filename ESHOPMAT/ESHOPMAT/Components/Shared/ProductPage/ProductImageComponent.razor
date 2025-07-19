@@ -1,41 +1,4 @@
-﻿@code {
-    [Parameter]
-    public string ImageUrl { get; set; }
-
-    [Inject]
-    private IDbContextFactory<ImageDbContext> DbImageContextFactory { get; set; }
-
-    private string ImageBase64 { get; set; }
-
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadImageFromDatabase();
-    }
-
-    private async Task LoadImageFromDatabase()
-    {
-        try
-        {
-            // Create a new DbContext instance using the factory
-            await using var dbContext = DbImageContextFactory.CreateDbContext();
-
-            // Fetch the image data from the database
-            if (int.TryParse(ImageUrl, out int imageId))
-            {
-                var image = await dbContext.Images.FindAsync(imageId);
-                if (image != null && image.Data != null)
-                {
-                    // Convert the byte array to a Base64 string
-                    ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error loading image: {ex.Message}");
-        }
-    }
-}
+﻿@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <div class="image-container">
     @if (!string.IsNullOrEmpty(ImageBase64))
@@ -67,3 +30,39 @@
         object-fit: cover;
     }
 </style>
+
+@code {
+    [Parameter]
+    public string ImageUrl { get; set; }
+
+    private string ImageBase64 { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadImageFromDatabase();
+    }
+
+    private async Task LoadImageFromDatabase()
+    {
+        try
+        {
+            // Create a new DbContext instance using the factory
+            await using var dbContext = DbContextFactory.CreateDbContext();
+
+            // Fetch the image data from the database
+            if (int.TryParse(ImageUrl, out int imageId))
+            {
+                var image = await dbContext.Images.FindAsync(imageId);
+                if (image != null && image.Data != null)
+                {
+                    // Convert the byte array to a Base64 string
+                    ImageBase64 = $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error loading image: {ex.Message}");
+        }
+    }
+}

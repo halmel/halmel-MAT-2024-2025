@@ -1,9 +1,5 @@
 ﻿@page "/test-db"
-@inject IDbContextFactory<PageDbContext> PageDbContextFactory
-@inject IDbContextFactory<ProductDbContext> ProductDbContextFactory
-@inject IDbContextFactory<ImageDbContext> ImageDbContextFactory
-@inject IDbContextFactory<OrderDbContext> OrderDbContextFactory
-@inject IDbContextFactory<EmailDbContext> EmailDbContextFactory
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <h3>Database Testing Page</h3>
 
@@ -20,31 +16,31 @@
 
     private async Task ClearPageDbContext()
     {
-        await ClearDatabase(PageDbContextFactory, context => context.Set<PageContent>());
+        await ClearDatabase(DbContextFactory, context => context.Set<PageContent>());
         statusMessage = "Page database cleared.";
     }
 
     private async Task ClearProductDbContext()
     {
-        await ClearDatabase(ProductDbContextFactory, context => context.Set<Product>());
+        await ClearDatabase(DbContextFactory, context => context.Set<Product>());
         statusMessage = "Product database cleared.";
     }
 
     private async Task ClearImageDbContext()
     {
-        await ClearDatabase(ImageDbContextFactory, context => context.Set<PageImage>());
+        await ClearDatabase(DbContextFactory, context => context.Set<PageImage>());
         statusMessage = "Image database cleared.";
     }
 
     private async Task ClearOrderDbContext()
     {
-        await ClearDatabase(OrderDbContextFactory, context => context.Set<Order>());
+        await ClearDatabase(DbContextFactory, context => context.Set<Order>());
         statusMessage = "Order database cleared.";
     }
 
     private async Task ClearEmailDbContext()
     {
-        await ClearDatabase(EmailDbContextFactory, context => context.Set<EmailTemplate>());
+        await ClearDatabase(DbContextFactory, context => context.Set<EmailTemplate>());
         statusMessage = "Email database cleared.";
     }
 

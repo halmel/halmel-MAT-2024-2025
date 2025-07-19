@@ -1,5 +1,5 @@
 ﻿@page "/"
-@inject IDbContextFactory<PageDbContext> DbPageContextFactory
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @using ESHOPMAT.Models
 @using Microsoft.AspNetCore.Components
 
@@ -17,11 +17,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        using var pageContext = await DbPageContextFactory.CreateDbContextAsync();
+        using var pageContext = await DbContextFactory.CreateDbContextAsync();
         RootPageContent = await GenerateMainPageTemplate(pageContext);
     }
 
-    private async Task<PageContent> GenerateMainPageTemplate(PageDbContext context)
+    private async Task<PageContent> GenerateMainPageTemplate(AppDbContext context)
     {
         const string templateName = "MainPageTemplate"; // Fixed name for main page template
         PageContentDictionaryCache.Initialize(context);
@@ -41,7 +41,7 @@ else
         return newTemplate;
     }
 
-    private PageContent CreateDefaultMainPageTemplate(PageDbContext context)
+    private PageContent CreateDefaultMainPageTemplate(AppDbContext context)
     {
         var page = new PageContent(new PageSettings
             {

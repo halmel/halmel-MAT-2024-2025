@@ -1,0 +1,52 @@
+﻿@page "/TestPage"
+@using ESHOPMAT.Models
+
+<PageTitle>Hatching Events</PageTitle>
+
+@if (products == null)
+{
+    <p><em>Loading test data...</em></p>
+}
+else
+{
+    <HatchingCalendar Products="products" />
+}
+
+@code {
+    private List<Product>? products;
+
+    protected override Task OnInitializedAsync()
+    {
+        // Create mock chick products with seasonal hatching events
+        var springStart = new DateTimeOffset(2025, 3, 1, 0, 0, 0, TimeSpan.Zero);
+        var summerEnd = new DateTimeOffset(2025, 7, 31, 0, 0, 0, TimeSpan.Zero);
+
+        var testChick1 = new Product
+            {
+                Id = 1,
+                Name = "White Leghorn",
+                Description = "Fast growing egg layer",
+                Price = 500,
+                StockHandlingType = ProductStockHandlingType.Chick,
+                CategoryType = ProductCategoryType.Chick,
+                Template = new ProductTemplate { Id = 1, Name = "chick-default" } // optional mock
+            };
+        testChick1.GenerateSeasonalHatchingEvents(springStart.AddDays(7), summerEnd.AddDays(-21), 75);
+
+        var testChick2 = new Product
+            {
+                Id = 2,
+                Name = "Rhode Island Red",
+                Description = "Dual purpose bird",
+                Price = 600,
+                StockHandlingType = ProductStockHandlingType.Chick,
+                CategoryType = ProductCategoryType.Chick,
+                Template = new ProductTemplate { Id = 2, Name = "chick-default" } // optional mock
+            };
+        testChick2.GenerateSeasonalHatchingEvents(springStart.AddDays(7), summerEnd.AddDays(-21), 75);
+
+        products = new List<Product> { testChick1, testChick2 };
+
+        return Task.CompletedTask;
+    }
+}

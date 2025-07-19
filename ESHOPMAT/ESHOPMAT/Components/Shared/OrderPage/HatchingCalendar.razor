@@ -1,0 +1,50 @@
+﻿@using ESHOPMAT.Models
+@using BlazorCalendar
+@using BlazorCalendar.Models
+@using System.Globalization
+
+@inherits OwningComponentBase
+
+@code {
+
+    [Parameter]
+    public List<Product> Products { get; set; } = new();
+
+    private List<Tasks> TasksList = new();
+
+    protected override void OnInitialized()
+    {
+        // Filter chick-type products and extract hatching events
+        var chickProducts = Products.Where(p => p.StockHandlingType == ProductStockHandlingType.Chick);
+
+        foreach (var product in chickProducts)
+        {
+            foreach (var hatchingEvent in product.HatchingEvents)
+            {
+                var task = new Tasks
+                    {
+                        DateStart = hatchingEvent.HatchDate.DateTime,
+                        DateEnd = hatchingEvent.HatchDate.DateTime,
+                        Caption = $"{product.Name} - {hatchingEvent.PredictedStock} chicks",
+                        Color = GetColorByStockStatus(hatchingEvent.GetStockStatus())
+                    };
+                TasksList.Add(task);
+            }
+        }
+    }
+
+    private string GetColorByStockStatus(StockStatus status)
+    {
+        return status switch
+        {
+            StockStatus.Green => "green",
+            StockStatus.Yellow => "orange",
+            StockStatus.Red => "red",
+            _ => "gray"
+        };
+    }
+}
+
+<CalendarContainer FirstDate="@DateTime.Today" TasksList="TasksList.ToArray()" DisplayedView="DisplayedView.Monthly">
+    <MonthlyView  />
+</CalendarContainer>

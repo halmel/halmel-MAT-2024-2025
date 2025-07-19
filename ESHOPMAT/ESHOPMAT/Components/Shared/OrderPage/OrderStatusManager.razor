@@ -1,0 +1,212 @@
+﻿@using ESHOPMAT.Models
+@using Blazicons
+@inject IJSRuntime JS
+
+<div class="status-manager" @onmouseleave="() => CloseMenu(300)" @onmouseenter="CancelCloseMenu">
+
+    <button class="status-button" @onclick="ToggleMenu">
+        <Blazicon Svg="@GetIconForStatus(CurrentStatus)" class="@($"status-icon {GetColorClass(CurrentStatus)}")" />
+    </button>
+
+    @if (IsMenuOpen)
+    {
+        <ul @ref="dropdownRef" class="status-dropdown @(isLeftAligned ? "align-left" : "align-right")" >
+            @foreach (var status in Enum.GetValues<OrderStatus>())
+            {
+                <li @onclick="() => UpdateStatus(status)" class="status-option">
+                    <Blazicon Svg="@GetIconForStatus(status)" class="@($"status-icon {GetColorClass(status)}")" />
+                    @status
+                </li>
+            }
+        </ul>
+    }
+</div>
+<style>
+    .status-manager {
+        position: relative;
+        display: inline-block;
+    }
+
+    .status-button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+    }
+
+    .status-dropdown {
+        position: absolute;
+        top: calc(100% + 4px);
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        list-style: none;
+        padding: 4px 0;
+        margin: 0;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        z-index: 1000;
+        min-width: 160px;
+        max-width: calc(100vw - 20px);
+    }
+
+    .align-right {
+        left: 0;
+        margin-left: 8px;
+    }
+
+    .align-left {
+        right: 0;
+        margin-right: 8px;
+    }
+
+    .status-option {
+        display: flex;
+        align-items: center;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+        .status-option:hover {
+            background-color: #f1f1f1;
+        }
+
+    .status-icon {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+    }
+
+    /* Color classes */
+    .status-undecided {
+        color: #999;
+    }
+
+    .status-confirmed {
+        color: #007bff;
+    }
+
+    .status-finished {
+        color: #28a745;
+    }
+
+    .status-cancelled {
+        color: #dc3545;
+    }
+
+    .status-unknown {
+        color: #ffc107;
+    }
+</style>
+
+@code {
+    [Parameter]
+    public OrderStatus CurrentStatus { get; set; }
+
+    [Parameter]
+    public EventCallback<OrderStatus> OnStatusChanged { get; set; }
+
+    private bool IsMenuOpen { get; set; }
+    private bool isLeftAligned = true;
+    private ElementReference dropdownRef;
+    private DotNetObjectReference<OrderStatusManager>? dotNetRef;
+    private IJSObjectReference? jsModule;
+    private IJSObjectReference? outsideClickListener;
+    private CancellationTokenSource? closeDelayToken;
+
+    private async void ToggleMenu()
+    {
+        IsMenuOpen = !IsMenuOpen;
+
+        if (IsMenuOpen)
+        {
+            StateHasChanged();
+            await RegisterOutsideClickListener();
+        }
+        else
+        {
+            await DisposeOutsideClickListener();
+        }
+    }
+
+    private async Task UpdateStatus(OrderStatus newStatus)
+    {
+        CurrentStatus = newStatus;
+        await CloseMenu(0); // No delay
+        await OnStatusChanged.InvokeAsync(newStatus);
+    }
+
+    private async Task CloseMenu(int delayMilliseconds = 300)
+    {
+        closeDelayToken?.Cancel();
+        closeDelayToken = new CancellationTokenSource();
+        var token = closeDelayToken.Token;
+
+        try
+        {
+            await Task.Delay(delayMilliseconds, token);
+        }
+        catch (TaskCanceledException)
+        {
+            return; // If another open/cancel came in, skip closing
+        }
+
+        if (IsMenuOpen)
+        {
+            IsMenuOpen = false;
+            await DisposeOutsideClickListener();
+            StateHasChanged();
+        }
+    }
+
+    private async Task RegisterOutsideClickListener()
+    {
+        dotNetRef ??= DotNetObjectReference.Create(this);
+        outsideClickListener = await JS.InvokeAsync<IJSObjectReference>("registerOutsideClick", dotNetRef, dropdownRef);
+    }
+
+    private async Task DisposeOutsideClickListener()
+    {
+        if (outsideClickListener is not null)
+        {
+            await outsideClickListener.InvokeVoidAsync("dispose");
+            await outsideClickListener.DisposeAsync();
+            outsideClickListener = null;
+        }
+        dotNetRef?.Dispose();
+        dotNetRef = null;
+    }
+
+    [JSInvokable("CloseMenu")]
+    public async Task JSCloseMenu()
+    {
+        await CloseMenu(0); // No delay on outside click
+    }
+
+    private void CancelCloseMenu()
+    {
+        closeDelayToken?.Cancel();
+    }
+
+
+    private SvgIcon GetIconForStatus(OrderStatus status) => status switch
+    {
+        OrderStatus.Confirmed => Lucide.CircleCheck,
+        OrderStatus.Finished => Lucide.PackageCheck,
+        OrderStatus.Cancelled => Lucide.CircleX,
+        OrderStatus.Unknown => Lucide.CircleHelp,
+        OrderStatus.Undecided => Lucide.Circle,
+        _ => Lucide.Circle
+    };
+
+    private string GetColorClass(OrderStatus status) => status switch
+    {
+        OrderStatus.Confirmed => "status-confirmed",
+        OrderStatus.Finished => "status-finished",
+        OrderStatus.Cancelled => "status-cancelled",
+        OrderStatus.Unknown => "status-unknown",
+        OrderStatus.Undecided => "status-undecided",
+        _ => ""
+    };
+}

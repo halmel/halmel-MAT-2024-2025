@@ -1,6 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject ProtectedSessionStorage ProtectedSessionStore
-
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 <div class="ordering-bar">
     <div class="price-section">
         <span>Price: @ProductPrice.ToString("C")</span>
@@ -116,8 +116,6 @@
     [Parameter]
     public bool IsEditing { get; set; }
 
-    [Inject]
-    private IDbContextFactory<ProductDbContext> DbProductContextFactory { get; set; }
 
     private int Count { get; set; } = 0;
     private int StockAvailable { get; set; } = 0;
@@ -132,7 +130,7 @@
     {
         if (Page?.Data?.TryGetValue("Product:Id", out var productIdStr) == true)
         {
-            using var context = DbProductContextFactory.CreateDbContext();
+            using var context = DbContextFactory.CreateDbContext();
             if (int.TryParse(productIdStr, out var productId))
             {
                 _Product = await context.Products.FindAsync(productId);

@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="@Assets["ESHOPMAT.styles.css"]" />
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.bubble.css" rel="stylesheet" />
+    <link href="_content/BlazorCalendar/BlazorCalendar.css" rel="stylesheet" />
+
     <ImportMap />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="PageRenderMode" />
@@ -22,6 +24,24 @@
     <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
     <script src="_content/Blazored.TextEditor/quill-blot-formatter.min.js"></script>
     <script src="_content/Blazored.TextEditor/Blazored-BlazorQuill.js"></script>
+    <script>
+        window.registerOutsideClick = (dotnetHelper, dropdownElement) => {
+          function onClick(event) {
+            if (!dropdownElement.contains(event.target)) {
+              dotnetHelper.invokeMethodAsync('CloseMenu');
+            }
+          }
+
+          document.addEventListener('click', onClick);
+
+          return {
+            dispose: () => {
+              document.removeEventListener('click', onClick);
+            }
+          };
+        };
+    </script>
+
 
 </body>
 

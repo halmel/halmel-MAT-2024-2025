@@ -1,7 +1,5 @@
 ﻿@page "/admin/products"
-@inject IDbContextFactory<ImageDbContext> DbImageContextFactory
-@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
-@inject IDbContextFactory<PageDbContext> DbPageContextFactory
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <h3>Product Management</h3>
 
@@ -25,7 +23,10 @@
                                 <h5>@product.Name</h5>
                                 <p>Description: @product.Description</p>
                                 <p>Price: $@product.Price</p>
+                                @if(product.StockHandlingType == ProductStockHandlingType.Default){
+
                                 <p>Amount: @product.Amount</p>
+                                }
                                 <div class="actions">
                                     <button class="btn btn-secondary me-2" @onclick="() => ShowModal(product)">Edit</button>
                                     <button class="btn btn-danger" @onclick="() => DeleteProduct(product)">Delete</button>
@@ -170,10 +171,12 @@ OnSave="@HandleSaveProduct" />
     {
         try
         {
-            await using var dbContext = await DbProductContextFactory.CreateDbContextAsync();
-            Products = await dbContext.Products.ToListAsync();
+            await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+            Products = await dbContext.Products
+                .Include(p => p.Template)
+                .ToListAsync();
             GroupedProducts = Products
-                .GroupBy(p => p.Type.ToString())
+                .GroupBy(p => p.CategoryType.ToString())
                 .ToDictionary(g => g.Key, g => g.ToList());
         }
         catch (Exception ex)
@@ -186,7 +189,7 @@ OnSave="@HandleSaveProduct" />
     {
         if (imageId.HasValue && imageId.Value != 0)
         {
-            using var dbContext = DbImageContextFactory.CreateDbContext();
+            using var dbContext = DbContextFactory.CreateDbContext();
             var image = dbContext.Images.Find(imageId.Value);
             return image != null ? $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}" : "/images/default-product.jpg";
         }
@@ -209,7 +212,7 @@ OnSave="@HandleSaveProduct" />
     {
         try
         {
-            await using var dbContext = await DbProductContextFactory.CreateDbContextAsync();
+            await using var dbContext = await DbContextFactory.CreateDbContextAsync();
 
             if (product.Id == 0)
             {
@@ -226,7 +229,9 @@ OnSave="@HandleSaveProduct" />
                     // Update existing product properties
                     existingProduct.Name = product.Name;
                     existingProduct.Description = product.Description;
-                    existingProduct.Type = product.Type;
+                    existingProduct.StockHandlingType = product.StockHandlingType;
+                    existingProduct.CategoryType = product.CategoryType;
+                    existingProduct.ProductTemplateId = product.ProductTemplateId;
                     existingProduct.Price = product.Price;
                     existingProduct.Amount = product.Amount;
                     existingProduct.ImageIds = product.ImageIds;
@@ -237,7 +242,7 @@ OnSave="@HandleSaveProduct" />
 
             await dbContext.SaveChangesAsync();
 
-            await using  var PageDb = await DbPageContextFactory.CreateDbContextAsync();
+            await using var PageDb = await DbContextFactory.CreateDbContextAsync();
             var x = PageDb.Pages.FirstOrDefault(x => x.ProductId == product.Id&& x.IsDev == false);
             if (x != null)
             {
@@ -261,12 +266,11 @@ OnSave="@HandleSaveProduct" />
     {
         try
         {
-            await using var dbContext = await DbProductContextFactory.CreateDbContextAsync();
+            await using var dbContext = await DbContextFactory.CreateDbContextAsync();
             
             // Optional: Delete associated images if they're not used by other products
             if (product.ImageIds?.Any() == true)
             {
-                var imageDbContext = await DbImageContextFactory.CreateDbContextAsync();
                 foreach (var imageId in product.ImageIds)
                 {
                     // Check if image is used by other products
@@ -276,14 +280,14 @@ OnSave="@HandleSaveProduct" />
 
                     if (!isImageUsedElsewhere)
                     {
-                        var image = await imageDbContext.Images.FindAsync(imageId);
+                        var image = await dbContext.Images.FindAsync(imageId);
                         if (image != null)
                         {
-                            imageDbContext.Images.Remove(image);
+                            dbContext.Images.Remove(image);
                         }
                     }
                 }
-                await imageDbContext.SaveChangesAsync();
+                await dbContext.SaveChangesAsync();
             }
 
             dbContext.Products.Remove(product);

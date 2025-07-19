@@ -1,4 +1,4 @@
-﻿@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
+﻿@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <select @bind="SelectedProductId">
     <option value="0">No product</option>
@@ -30,7 +30,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        using (var context = DbProductContextFactory.CreateDbContext())
+        using (var context = DbContextFactory.CreateDbContext())
         {
             Products = await context.Products.ToListAsync();
         }
@@ -47,7 +47,7 @@
         Product selectedProduct = null;
         if (productId != 0)
         {
-            using (var context = DbProductContextFactory.CreateDbContext())
+            using (var context = DbContextFactory.CreateDbContext())
             {
                 selectedProduct = await context.Products.FirstOrDefaultAsync(p => p.Id == productId);
             }

@@ -1,6 +1,5 @@
 ﻿@page "/page-editor"
-@inject ESHOPMAT.Models.PageDbContext DbContext
-@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject NavigationManager Navigation
 @using Shared.Modals
 @if (Pages.Count == 0)
@@ -156,27 +155,30 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        PageContentDictionaryCache.Initialize(DbContext);
+        var dbContext = DbContextFactory.CreateDbContext();
+        PageContentDictionaryCache.Initialize(dbContext);
         Pages = await FetchRootPages();  // Await the asynchronous call to fetch pages
 
         if (Pages.Count == 0)
         {
             var defaultPage = CreateDefaultPage();
             Pages.Add(defaultPage);
-            await DbContext.Pages.AddAsync(defaultPage);
-            await DbContext.SaveChangesAsync();
+            await dbContext.Pages.AddAsync(defaultPage);
+            await dbContext.SaveChangesAsync();
         }
     }
 
     private async Task<List<PageContent>> FetchRootPages()  // Return Task<List<PageContent>> instead of List<PageContent>
     {
+        var dbContext = DbContextFactory.CreateDbContext();
         // For example, assume `PageContentService.GetAllPages()` fetches all pages asynchronously
-        var allPages = await DbContext.Pages.ToListAsync();  // Asynchronously fetch all pages from the database
+        var allPages = await dbContext.Pages.ToListAsync();  // Asynchronously fetch all pages from the database
         return allPages.Where(page => page.IsRoot == true && page.IsDev == false).ToList();
     }
 
     private ESHOPMAT.Models.PageContent CreateDefaultPage()
     {
+        var dbContext = DbContextFactory.CreateDbContext();
         var defaultPage = new PageContent(new PageSettings
             {
                 Name = "DefaultPage",
@@ -184,7 +186,7 @@ else
                 RowCount = 16,
                 ColCount = 16,
                 IsRoot = true
-            }, DbContext);
+            }, dbContext);
 
         var nestedContainer = new PageSettings
             {
@@ -204,15 +206,16 @@ else
 
     private async Task SavePageContent()
     {
+        var dbContext = DbContextFactory.CreateDbContext();
         if (Pages.Count == 0) return;
 
         var currentPage = Pages[CurrentPageIndex];
-        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
+        var existingPage = await dbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
 
         if (existingPage != null)
         {
-            DbContext.Entry(existingPage).State = EntityState.Detached; // Detach to avoid conflicts
-            DbContext.Pages.Update(currentPage);
+            dbContext.Entry(existingPage).State = EntityState.Detached; // Detach to avoid conflicts
+            dbContext.Pages.Update(currentPage);
 
         }
         else
@@ -221,25 +224,26 @@ else
             {
                 throw new InvalidOperationException("Cant save dev page like this");
             }
-            await DbContext.Pages.AddAsync(currentPage);
+            await dbContext.Pages.AddAsync(currentPage);
         }
 
-        await DbContext.SaveChangesAsync();
-        PageContentDictionaryCache.Update(currentPage.SharedId, currentPage.Data, DbContext);
-        PageContentDictionaryCache.Update(currentPage.DevSharedId, currentPage.DevPage.Data, DbContext);
+        await dbContext.SaveChangesAsync();
+        PageContentDictionaryCache.Update(currentPage.SharedId, currentPage.Data, dbContext);
+        PageContentDictionaryCache.Update(currentPage.DevSharedId, currentPage.DevPage.Data, dbContext);
     }
 
     private async Task DeletePage()
     {
+        var dbContext = DbContextFactory.CreateDbContext();
         if (Pages.Count == 0) return;
 
         var currentPage = Pages[CurrentPageIndex];
-        var existingPage = await DbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
+        var existingPage = await dbContext.Pages.FirstOrDefaultAsync(p => p.Name == currentPage.Name);
 
         if (existingPage != null)
         {
-            await DbContext.DeletePageAsync(existingPage.Id);
-            await DbContext.SaveChangesAsync();
+            await dbContext.DeletePageAsync(existingPage.Id);
+            await dbContext.SaveChangesAsync();
         }
 
         Pages.RemoveAt(CurrentPageIndex);
@@ -290,10 +294,11 @@ else
     }
     private async Task AddRoot(PageSettings x)
     {
-        var defaultPage = new PageContent(x, DbContext);
+        var dbContext = DbContextFactory.CreateDbContext();
+        var defaultPage = new PageContent(x, dbContext);
         Pages.Add(defaultPage);
-        await DbContext.Pages.AddAsync(defaultPage);
-        await DbContext.SaveChangesAsync();
+        await dbContext.Pages.AddAsync(defaultPage);
+        await dbContext.SaveChangesAsync();
     }
 
     // Handle the logic for editing a child component
@@ -361,15 +366,16 @@ else
     }
     private async void DeleteChild(PageContent child)
     {
+        var dbContext = DbContextFactory.CreateDbContext();
         try
         {
             // Ensure the child entity is loaded and tracked by the DbContext
-            var trackedChild = await DbContext.Pages.FindAsync(child.Id);
+            var trackedChild = await dbContext.Pages.FindAsync(child.Id);
             if (trackedChild != null)
             {
                 // Remove the child entity from the database
-                DbContext.Pages.Remove(trackedChild);
-                await DbContext.SaveChangesAsync();
+                dbContext.Pages.Remove(trackedChild);
+                await dbContext.SaveChangesAsync();
 
                 // Recursively delete related data
                 DeleteChildDataRecursively(trackedChild);

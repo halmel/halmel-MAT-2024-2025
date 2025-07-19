@@ -1,7 +1,10 @@
+﻿
 using ESHOPMAT.Components;
 using ESHOPMAT.Components.Account;
+using ESHOPMAT.Components.Account.Shared;
 using ESHOPMAT.Data;
 using ESHOPMAT.Models;
+using ESHOPMAT;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
@@ -40,15 +43,7 @@ builder.Services.AddAuthentication(options =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
-builder.Services.AddDbContextFactory<PageDbContext>(options =>
-    options.UseSqlServer(connectionString));
-builder.Services.AddDbContextFactory<ProductDbContext>(options =>
-    options.UseSqlServer(connectionString));
-builder.Services.AddDbContextFactory<ImageDbContext>(options =>
-    options.UseSqlServer(connectionString));
-builder.Services.AddDbContextFactory<OrderDbContext>(options =>
-    options.UseSqlServer(connectionString));
-builder.Services.AddDbContextFactory<EmailDbContext>(options =>
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseSqlServer(connectionString));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
@@ -61,6 +56,18 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 
 
 var app = builder.Build();
+
+
+
+
+
+
+
+
+
+
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

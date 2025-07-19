@@ -1,6 +1,5 @@
 ﻿@page "/product/{ProductId:int}"
-@inject IDbContextFactory<ProductDbContext> DbProductContextFactory
-@inject IDbContextFactory<PageDbContext> DbPageContextFactory
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @using ESHOPMAT.Models
 @using Microsoft.AspNetCore.Components
 
@@ -24,8 +23,8 @@ else
     // This method will run each time parameters are set or updated (such as ProductId changing)
     protected override async Task OnParametersSetAsync()
     {
-        using var productContext = await DbProductContextFactory.CreateDbContextAsync();
-        Product = await productContext.Products.FindAsync(ProductId);
+        using var DbContext = await DbContextFactory.CreateDbContextAsync();
+        Product = await DbContext.Products.FindAsync(ProductId);
 
         if (Product == null)
         {
@@ -33,9 +32,7 @@ else
             RootPageContent = null;
             return;
         }
-
-        using var pageContext = await DbPageContextFactory.CreateDbContextAsync();
-        RootPageContent = await GeneratePageTemplate(Product.Type, pageContext);
+        RootPageContent = await GeneratePageTemplate(Product.Template.Name, DbContext);
 
         if (RootPageContent != null)
         {
@@ -43,7 +40,7 @@ else
         }
     }
 
-    private async Task<PageContent> GeneratePageTemplate(ProductType productType, PageDbContext context)
+    private async Task<PageContent> GeneratePageTemplate(string productType, AppDbContext context)
     {
         var templateName = $"{productType}Template";
         PageContentDictionaryCache.Initialize(context);
@@ -62,7 +59,7 @@ else
         return newTemplate;
     }
 
-    private PageContent CreateDefaultPageTemplate(string templateName, PageDbContext context)
+    private PageContent CreateDefaultPageTemplate(string templateName, AppDbContext context)
     {
         var page = new PageContent(new PageSettings
             {

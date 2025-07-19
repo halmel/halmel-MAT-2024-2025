@@ -19,28 +19,21 @@ namespace ESHOPMAT.Models
         [NotMapped]
         public EmailAddress EmailAddress
         {
-            get
-            {
-                return new EmailAddress(Address, Name);
-            }
-            set
-            {
-                Address = value.Email.ToString();
-            }
+            get => new EmailAddress(Address, Name);
+            set => Address = value.Email;
         }
 
         [Required]
         public string TelephoneNumber { get; set; }
 
-        public int OrderId { get; set; }
         public DateTime OrderDate { get; set; }
-        public List<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
 
-        public OrderStatus OrderStatus { get; set; } = OrderStatus.Undecided; // Default status
+        public List<OrderItem> OrderItems { get; set; } = new();
 
-        public Order(int orderId, DateTime orderDate)
+        public OrderStatus OrderStatus { get; set; } = OrderStatus.Undecided;
+
+        public Order( DateTime orderDate)
         {
-            OrderId = orderId;
             OrderDate = orderDate;
         }
 
@@ -48,15 +41,9 @@ namespace ESHOPMAT.Models
 
         public decimal CalculateTotal()
         {
-            decimal total = 0;
-            foreach (var item in OrderItems)
-            {
-                total += item.TotalPrice();
-            }
-            return total;
+            return OrderItems.Sum(item => item.TotalPrice());
         }
 
-        // Method to remove an OrderItem from the OrderItems list
         public void RemoveOrderItem(int orderItemId)
         {
             var orderItem = OrderItems.FirstOrDefault(item => item.Id == orderItemId);
@@ -65,7 +52,13 @@ namespace ESHOPMAT.Models
                 OrderItems.Remove(orderItem);
             }
         }
+
+        public string GetProductIdsAsString()
+        {
+            return string.Join(",", OrderItems.Select(item => item.ProductId));
+        }
     }
+
     public class ContactInformation
     {
         public string Name { get; set; }
@@ -89,25 +82,17 @@ namespace ESHOPMAT.Models
         [Required]
         public int ProductId { get; set; }
 
-        [Required]
-        public int Price { get; set; }
-
-        [Required]
-        public string Name { get; set; }
+        [ForeignKey("ProductId")]
+        public Product Product { get; set; } = null!;
 
         [Required]
         public int Quantity { get; set; }
 
         [Required]
-        public int OrderId { get; set; } // Foreign key to Order
-
-        [Required]
-        public int Stock { get; set; } // Foreign key to Order
+        public int OrderId { get; set; }
 
         [ForeignKey("OrderId")]
-        public Order Order { get; set; } // Navigation property
-
-
+        public Order Order { get; set; } = null!;
 
         public OrderItem() { }
 
@@ -116,35 +101,15 @@ namespace ESHOPMAT.Models
             if (quantity <= 0)
                 throw new ArgumentException("Quantity must be greater than zero.");
 
+            Product = product;
             ProductId = product.Id;
-            Price = product.Price;
-            Name = product.Name;
             Quantity = quantity;
-            Stock = product.Amount;
         }
 
         public decimal TotalPrice()
         {
-            return Price * Quantity;
+            return Product.Price * Quantity;
         }
     }
 
-    public class OrderDbContext : DbContext
-    {
-        public OrderDbContext(DbContextOptions<OrderDbContext> options) : base(options)
-        {
-        }
-
-        public DbSet<Order> Orders { get; set; }
-        public DbSet<OrderItem> OrderItems { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<Order>()
-                .HasMany(o => o.OrderItems)
-                .WithOne(oi => oi.Order)
-                .HasForeignKey(oi => oi.OrderId)
-                .OnDelete(DeleteBehavior.Cascade); // Cascade delete for Order and its OrderItems
-        }
-    }
 }

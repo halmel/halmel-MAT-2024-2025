@@ -1,4 +1,6 @@
-﻿@if (IsVisible)
+﻿@inject IDbContextFactory<AppDbContext> DbContextFactory
+
+@if (IsVisible)
 {
     <div class="modal show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.5);">
         <div class="modal-dialog">
@@ -20,22 +22,64 @@
                             <InputTextArea id="description" class="form-control" @bind-Value="CurrentProduct.Description" rows="3" />
                         </div>
                         <div class="mb-3">
-                            <label for="type" class="form-label">Type</label>
-                            <InputSelect id="type" class="form-control" @bind-Value="CurrentProduct.Type">
-                                @foreach (var type in Enum.GetValues<ProductType>())
+                            <label for="stockHandlingType" class="form-label">Stock Handling Type</label>
+                            <InputSelect id="stockHandlingType" class="form-control" @bind-Value="CurrentProduct.StockHandlingType">
+                                @foreach (var type in Enum.GetValues<ProductStockHandlingType>())
                                 {
                                     <option value="@type">@type</option>
                                 }
                             </InputSelect>
                         </div>
+
+                        <div class="mb-3">
+                            <label for="categoryType" class="form-label">Category</label>
+                            <InputSelect id="categoryType" class="form-control" @bind-Value="CurrentProduct.CategoryType">
+                                @foreach (var cat in Enum.GetValues<ProductCategoryType>())
+                                {
+                                    <option value="@cat">@cat</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="template" class="form-label">Template</label>
+                            <InputSelect id="template" class="form-control" @bind-Value="SelectedTemplateId" @oninput="OnTemplateChange">
+                                <option value="">-- Select a template --</option>
+                                @foreach (var template in AvailableTemplates)
+                                {
+                                    <option value="@template.Id">@template.Name</option>
+                                }
+                                <option value="-1">+ Add new template</option>
+                            </InputSelect>
+                        </div>
+
+                        @if (IsAddingNewTemplate)
+                        {
+                            <div class="mb-3">
+                                <label for="newTemplate" class="form-label">New Template Name</label>
+                                <InputText id="newTemplate" class="form-control" @bind-Value="NewTemplateName" />
+                            </div>
+                        }
+
                         <div class="mb-3">
                             <label for="price" class="form-label">Price</label>
                             <InputNumber id="price" class="form-control" @bind-Value="CurrentProduct.Price" />
                         </div>
-                        <div class="mb-3">
-                            <label for="amount" class="form-label">Amount</label>
-                            <InputNumber id="amount" class="form-control" @bind-Value="CurrentProduct.Amount" />
-                        </div>
+                        @if (CurrentProduct.StockHandlingType != ProductStockHandlingType.Chick)
+                        {
+                            <div class="mb-3">
+                                <label for="amount" class="form-label">Amount</label>
+                                <InputNumber id="amount" class="form-control" @bind-Value="CurrentProduct.Amount" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Amount</label>
+                                <input class="form-control" value="Managed via hatching events" disabled />
+                            </div>
+                        }
+
                         <div class="mb-3">
                             <label for="imageUpload" class="form-label">Upload Images</label>
                             <InputFile id="imageUpload" OnChange="OnImagesSelected" multiple accept=".jpg,.jpeg,.png" class="form-control" />
@@ -73,45 +117,45 @@
 
 <style>
     .image-preview-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 1rem;
     }
 
     .image-preview {
-        position: relative;
-        width: 150px;
-        height: 150px;
-        border: 1px solid #ddd;
-        padding: 5px;
+    position: relative;
+    width: 150px;
+    height: 150px;
+    border: 1px solid #ddd;
+    padding: 5px;
     }
 
-        .image-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+    .image-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    }
 
-        .image-preview button {
-            position: absolute;
-            z-index: 1;
-        }
+    .image-preview button {
+    position: absolute;
+    z-index: 1;
+    }
 
-        .image-preview .btn-danger {
-            top: 5px;
-            right: 5px;
-        }
+    .image-preview .btn-danger {
+    top: 5px;
+    right: 5px;
+    }
 
-        .image-preview .btn-secondary:nth-of-type(2) {
-            bottom: 5px;
-            right: 30px;
-        }
+    .image-preview .btn-secondary:nth-of-type(2) {
+    bottom: 5px;
+    right: 30px;
+    }
 
-        .image-preview .btn-secondary:nth-of-type(3) {
-            bottom: 5px;
-            right: 5px;
-        }
+    .image-preview .btn-secondary:nth-of-type(3) {
+    bottom: 5px;
+    right: 5px;
+    }
 </style>
 
 @code {
@@ -125,8 +169,18 @@
     private List<UploadedFile> Images = new();
     private List<int> ImageOrder = new();
 
-    [Inject]
-    private IDbContextFactory<ImageDbContext> DbImageContextFactory { get; set; }
+
+    private List<ProductTemplate> AvailableTemplates = new();
+
+    private int? SelectedTemplateId;
+    private bool IsAddingNewTemplate = false;
+    private string NewTemplateName = string.Empty;
+
+
+    protected override async Task OnInitializedAsync(){
+        await using var productDbContext = await DbContextFactory.CreateDbContextAsync();
+        AvailableTemplates = productDbContext.ProductTemplates.ToList();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -137,17 +191,20 @@
                     Id = ProductToEdit.Id,
                     Name = ProductToEdit.Name,
                     Description = ProductToEdit.Description,
-                    Type = ProductToEdit.Type,
+                    StockHandlingType = ProductToEdit.StockHandlingType,
+                    CategoryType = ProductToEdit.CategoryType,
+                    ProductTemplateId = ProductToEdit.ProductTemplateId,
                     Price = ProductToEdit.Price,
                     Amount = ProductToEdit.Amount,
                     ImageIds = ProductToEdit.ImageIds
                 };
 
+
             // Load existing images
             Images.Clear();
             ImageOrder.Clear();
 
-            await using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
+            await using var dbContext = await DbContextFactory.CreateDbContextAsync();
             for (int i = 0; i < ProductToEdit.ImageIds.Length; i++)
             {
                 var imageId = ProductToEdit.ImageIds[i];
@@ -169,8 +226,11 @@
         {
             CurrentProduct = new Product
                 {
-                    ImageIds = Array.Empty<int>()
+                    ImageIds = Array.Empty<int>(),
+                    StockHandlingType = ProductStockHandlingType.Unknown,
+                    CategoryType = ProductCategoryType.Unknown,
                 };
+
             Images.Clear();
             ImageOrder.Clear();
         }
@@ -179,7 +239,7 @@
     private string GetImageUrl(int? imageId)
     {
         if (!imageId.HasValue || imageId.Value == 0) return string.Empty;
-        using var dbContext = DbImageContextFactory.CreateDbContext();
+        using var dbContext = DbContextFactory.CreateDbContext();
         var image = dbContext.Images.Find(imageId.Value);
         return image != null ? $"data:image/jpeg;base64,{Convert.ToBase64String(image.Data)}" : string.Empty;
     }
@@ -207,6 +267,23 @@
             ImageOrder.Add(startIndex++);
         }
         StateHasChanged();
+    }
+    private void OnTemplateChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id))
+        {
+            SelectedTemplateId = id;
+
+            if (id == -1)
+            {
+                IsAddingNewTemplate = true;
+                NewTemplateName = string.Empty;
+            }
+            else
+            {
+                IsAddingNewTemplate = false;
+            }
+        }
     }
 
     private void MoveImageUp(int index)
@@ -253,7 +330,7 @@
 
     private async Task HandleValidSubmit()
     {
-        await using var dbContext = DbImageContextFactory.CreateDbContext();
+        await using var dbContext = DbContextFactory.CreateDbContext();
         var imageIds = new List<int>();
 
         // Process new images
@@ -278,6 +355,29 @@
         }
 
         CurrentProduct.ImageIds = imageIds.ToArray();
+        await using var productDbContext = await DbContextFactory.CreateDbContextAsync();
+
+        if (IsAddingNewTemplate && !string.IsNullOrWhiteSpace(NewTemplateName))
+        {
+            var newTemplate = new ProductTemplate { Name = NewTemplateName };
+            productDbContext.ProductTemplates.Add(newTemplate);
+            try
+            {
+                await productDbContext.SaveChangesAsync(); // ✅ Use correct DbContext
+                CurrentProduct.ProductTemplateId = newTemplate.Id;
+            }
+            catch (Exception x)
+            {
+                Console.WriteLine($"Template creation failed: {x.Message}");
+                return; // Don't proceed with product save if template creation failed
+            }
+        }
+        else
+        {
+            CurrentProduct.ProductTemplateId = SelectedTemplateId;
+        }
+
+
 
         if (OnSave.HasDelegate)
         {

@@ -1,4 +1,5 @@
-﻿<div class="product-page">
+﻿@inject IDbContextFactory<AppDbContext> DbContextFactory
+<div class="product-page">
     <div class="content-section">
         @if (TitleDescriptionPage != null)
         {
@@ -53,10 +54,6 @@
 </style>
 
 @code {
-    [Inject]
-    private IDbContextFactory<ProductDbContext> DbProductContextFactory { get; set; }
-    [Inject]
-    private IDbContextFactory<PageDbContext> DbPageContextFactory { get; set; }
     [Parameter]
     public PageContent Page { get; set; }
 
@@ -112,7 +109,7 @@
 
     private async Task<Product> FetchProductById(int productId)
     {
-        using var context = DbProductContextFactory.CreateDbContext();
+        using var context = DbContextFactory.CreateDbContext();
         return await context.Products.FindAsync(productId);
     }
 

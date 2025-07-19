@@ -1,6 +1,6 @@
 ﻿@implements IDisposable
 @inject NavigationManager NavigationManager
-@inject IDbContextFactory<ProductDbContext> DbContextFactory
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -98,6 +98,11 @@
                             <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Product Orders Admin
                         </NavLink>
                     </li>
+                    <li>
+                        <NavLink class="nav-link" href="/TestPage">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> TestPage
+                        </NavLink>
+                    </li>
                     <!-- Auth Links -->
                     <AuthorizeView>
                         <Authorized>
@@ -136,8 +141,8 @@
 </div>
 
 @code {
-    private Dictionary<ProductType, List<Product>>? groupedProducts; // Group products by ProductType
-    private HashSet<ProductType> expandedTypes = new(); // Track expanded product types
+    private Dictionary<ProductCategoryType, List<Product>>? groupedProducts; // Group products by ProductType
+    private HashSet<ProductCategoryType> expandedTypes = new(); // Track expanded product types
     private bool showTestingLinks = false; // Track visibility of Testing Links
 
     protected override async Task OnInitializedAsync()
@@ -155,11 +160,11 @@
         // Group products by their ProductType
         groupedProducts = products
             .Where(p => !p.Name.Contains("testing", StringComparison.OrdinalIgnoreCase)) // Filter out testing products
-            .GroupBy(p => p.Type)
+            .GroupBy(p => p.CategoryType)
             .ToDictionary(g => g.Key, g => g.ToList());
     }
 
-    private void ToggleProductType(ProductType type)
+    private void ToggleProductType(ProductCategoryType type)
     {
         if (expandedTypes.Contains(type))
         {

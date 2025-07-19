@@ -1,4 +1,5 @@
-﻿<div class="image-container">
+﻿@inject IDbContextFactory<AppDbContext> DbContextFactory
+<div class="image-container">
     @if (IsEditing)
     {
         <label for="fileUpload" class="upload-label">Drag and drop or click to upload an image</label>
@@ -35,8 +36,6 @@
 </div>
 
 @code {
-    [Inject]
-    private IDbContextFactory<ImageDbContext> DbImageContextFactory { get; set; }
 
     [Parameter]
     public PageContent Page { get; set; }
@@ -63,7 +62,7 @@
             if (ImageIds != null && ImageIds.Count > 0 && CurrentImageIndex >= 0 && CurrentImageIndex < ImageIds.Count)
             {
                 var currentImageId = ImageIds[CurrentImageIndex];
-                using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
+                using var dbContext = await DbContextFactory.CreateDbContextAsync();
                 var image = await dbContext.Images.FindAsync(Convert.ToInt32(currentImageId));
                 if (image != null && image.Data != null)
                 {
@@ -119,7 +118,7 @@
     {
         try
         {
-            using var dbContext = await DbImageContextFactory.CreateDbContextAsync();
+            using var dbContext = await DbContextFactory.CreateDbContextAsync();
             var imageEntry = new PageImage { FileName = fileName, Data = imageData };
             dbContext.Images.Add(imageEntry);
             await dbContext.SaveChangesAsync();
