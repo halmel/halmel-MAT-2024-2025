@@ -107,7 +107,11 @@
                             }
                         </div>
 
-                        <button type="submit" class="btn btn-primary">@(IsEditing ? "Save Changes" : "Add Product")</button>
+                        <div class="d-flex justify-content-end gap-2">
+                            <button type="button" class="btn btn-secondary" @onclick="Close">Cancel</button>
+                            <button type="submit" class="btn btn-primary">@(IsEditing ? "Save Changes" : "Add Product")</button>
+                        </div>
+
                     </EditForm>
                 </div>
             </div>
@@ -199,6 +203,7 @@
                     ImageIds = ProductToEdit.ImageIds
                 };
 
+            SelectedTemplateId = ProductToEdit.ProductTemplateId; // ✅ <-- This sets the selected template
 
             // Load existing images
             Images.Clear();
@@ -231,10 +236,12 @@
                     CategoryType = ProductCategoryType.Unknown,
                 };
 
+            SelectedTemplateId = null; // Reset on new product
             Images.Clear();
             ImageOrder.Clear();
         }
     }
+
 
     private string GetImageUrl(int? imageId)
     {
