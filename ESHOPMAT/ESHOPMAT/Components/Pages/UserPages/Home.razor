@@ -43,39 +43,59 @@ else
 
     private PageContent CreateDefaultMainPageTemplate(AppDbContext context)
     {
-        var page = new PageContent(new PageSettings
+        // Root container for the page
+        var rootSettings = new PageSettings
             {
                 Name = "MainPageTemplate",
                 Type = ComponentType.Container,
-                RowCount = 16,
-                ColCount = 16,
-                IsRoot = true
-            }, context);
+                IsRoot = true,
+                Data = new Dictionary<string, object>
+                {
+                    ["columns"] = 16,
+                    ["rows"] = 16,
+                    ["rowHeight"] = 16
+                }
+            };
 
-        page.AddChild(new PageSettings
+        var page = new PageContent(rootSettings, context);
+
+        // Add TextBlock component
+        var textBlock = new PageSettings
             {
                 Name = "Text",
                 Type = ComponentType.TextBlock,
-                Title = "Welcome",
-                Text = "To Eshop",
                 Row = 1,
                 Col = 1,
                 RowSpan = 2,
-                ColSpan = 16
-            });
+                ColSpan = 16,
+                Data = new Dictionary<string, object>
+                {
+                    ["title"] = "Welcome",
+                    ["text"] = "To Eshop"
+                }
+            };
 
+        page.AddChild(textBlock);
 
-        page.AddChild(new PageSettings
+        // Add ProductList component
+        var productList = new PageSettings
             {
                 Name = "FeaturedProducts",
-                Type = ComponentType.ProductList, // Define a new custom component type
+                Type = ComponentType.ProductList,
                 Row = 7,
                 Col = 1,
                 RowSpan = 6,
-                ColSpan = 16
-            });
+                ColSpan = 16,
+                Data = new Dictionary<string, object>
+                {
+                    // Optional: initialize with empty list or IDs
+                    ["ProductList"] = new List<Guid>()
+                }
+            };
 
+        page.AddChild(productList);
 
         return page;
     }
+
 }

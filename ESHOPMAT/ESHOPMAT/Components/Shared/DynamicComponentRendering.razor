@@ -18,7 +18,7 @@ style="@WrapperStyle; @GetPositionStyle()"
         <div class="resize-handle bottom-right" @onmousedown:preventDefault @onmousedown="(e) => StartResize(e, ResizeDirection.BottomRight)"></div>
     }
 
-    <DynamicComponent Type="GetComponentType(Page.Type)" Parameters="GetParameters()" />
+    <DynamicComponent Type="ComponentRegistry.Get(Page.Type).BlazorComponentType" Parameters="GetParameters()" />
 </div>
 
 <style>
@@ -422,68 +422,24 @@ style="@WrapperStyle; @GetPositionStyle()"
         WrapperStyle = $"grid-row: {position.Row} / span {position.RowSpan}; grid-column: {position.Column} / span {position.ColSpan};";
     }
 
-    // Methods for dynamic component rendering
-    private Type GetComponentType(string type)
-    {
-        return type switch
-        {
-            "Container" => typeof(ContainerComponent),
-            "Counter" => typeof(CounterComponent),
-            "TextBlock" => typeof(TextBlockComponent),
-            "Image" => typeof(ImageComponent),
-            "OrderingBar" => typeof(OrderingBarComponent),
-            "ProductTitleDescription" => typeof(ProductTitleDescriptionComponent),
-            "ProductImage" => typeof(ProductImg),
-            "ProductList" => typeof(ProductList),
-            _ => null
-        };
-    }
+
 
     private Dictionary<string, object> GetParameters()
     {
         var parameters = new Dictionary<string, object>();
-        if (Page.Type == "Container")
+        var def = ComponentRegistry.Get(Page.Type);
+
+        if (def?.ParameterBindings == null)
+            return parameters;
+
+        foreach (var param in def.ParameterBindings)
         {
-            parameters[nameof(ContainerComponent.Page)] = Page;
-            parameters[nameof(ContainerComponent.IsEditing)] = IsEditing;
+            parameters[param.Key] = param.Value(Page, IsEditing);
         }
-        else if (Page.Type == "Counter")
-        {
-            parameters[nameof(CounterComponent.Page)] = Page;
-            parameters[nameof(CounterComponent.IsEditing)] = IsEditing;
-        }
-        else if (Page.Type == "TextBlock")
-        {
-            parameters[nameof(TextBlockComponent.Page)] = Page;
-            parameters[nameof(TextBlockComponent.IsEditing)] = IsEditing;
-        }
-        else if (Page.Type == "Image")
-        {
-            parameters[nameof(ImageComponent.Page)] = Page;
-            parameters[nameof(ImageComponent.IsEditing)] = IsEditing;
-        }
-        else if (Page.Type == "OrderingBar")
-        {
-            parameters[nameof(OrderingBarComponent.Page)] = Page;
-            parameters[nameof(OrderingBarComponent.IsEditing)] = IsEditing;
-        }
-        else if (Page.Type == "ProductTitleDescription")
-        {
-            parameters[nameof(ProductTitleDescriptionComponent.Page)] = Page;
-            parameters[nameof(ProductTitleDescriptionComponent.IsEditing)] = IsEditing;
-        }
-        else if (Page.Type == "ProductImage")
-        {
-            parameters[nameof(ProductImg.Page)] = Page;
-            parameters[nameof(ProductImg.IsEditing)] = IsEditing;
-        }
-        else if (Page.Type == "ProductList")
-        {
-            parameters[nameof(ProductList.Page)] = Page;
-            parameters[nameof(ProductList.IsEditing)] = IsEditing;
-        }
+
         return parameters;
     }
+
 
     private string GetPositionStyle()
     {

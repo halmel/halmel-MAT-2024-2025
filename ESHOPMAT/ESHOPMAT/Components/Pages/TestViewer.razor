@@ -53,30 +53,45 @@ else
     }
     private ESHOPMAT.Models.PageContent CreateDefaultPage()
     {
-        var defaultPage = new PageContent(new PageSettings
+        var dbContext = DbContextFactory.CreateDbContext();
+
+        // Root container with custom grid dimensions
+        var rootSettings = new PageSettings
             {
                 Name = "DefaultPage",
                 Type = ComponentType.Container,
-                RowCount = 16,
-                ColCount = 16,
-                IsRoot = true
-            }, dbContext);
+                IsRoot = true,
+                Data = new Dictionary<string, object>
+                {
+                    ["columns"] = 16,
+                    ["rows"] = 16,
+                    ["rowHeight"] = 16
+                }
+            };
 
-        var nestedContainer = new PageSettings
+        var defaultPage = new PageContent(rootSettings, dbContext);
+
+        // Nested container with its own layout settings
+        var nestedSettings = new PageSettings
             {
                 Name = "NestedContainer",
                 Type = ComponentType.Container,
-                RowCount = 2,
-                ColCount = 2,
                 Row = 2,
                 Col = 2,
                 RowSpan = 2,
-                ColSpan = 2
+                ColSpan = 2,
+                Data = new Dictionary<string, object>
+                {
+                    ["columns"] = 2,
+                    ["rows"] = 2,
+                    ["rowHeight"] = 16
+                }
             };
 
-        defaultPage.AddChild(nestedContainer);
+        defaultPage.AddChild(nestedSettings);
         return defaultPage;
     }
+
 
     private async Task SavePageContent()
     {

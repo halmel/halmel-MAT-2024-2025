@@ -121,13 +121,18 @@
                 {
                     Name = "TitleDescription",
                     Type = ComponentType.TextBlock,
-                    RowCount = 1,
-                    ColCount = 1,
                     Row = 0,
                     Col = 0,
                     RowSpan = 1,
-                    ColSpan = 2
+                    ColSpan = 2,
+                    Data = new Dictionary<string, object>
+                    {
+                        ["title"] = product.Name,
+                        ["text"] = product.Description
+                    }
                 });
+
+        // Update values if already existed
         TitleDescriptionPage.SetValue("title", product.Name);
         TitleDescriptionPage.SetValue("text", product.Description);
 
@@ -137,13 +142,16 @@
                 {
                     Name = "Image",
                     Type = ComponentType.Image,
-                    RowCount = 1,
-                    ColCount = 1,
                     Row = 0,
                     Col = 2,
                     RowSpan = 1,
-                    ColSpan = 1
+                    ColSpan = 1,
+                    Data = new Dictionary<string, object>
+                    {
+                        ["image"] = product.ImageIds.FirstOrDefault().ToString() ?? ""
+                    }
                 });
+
         ImagePage.SetValue("image", product.ImageIds.FirstOrDefault().ToString() ?? "");
 
         // Ensure OrderingPage is created or updated
@@ -152,16 +160,21 @@
                 {
                     Name = "Ordering",
                     Type = ComponentType.OrderingBar,
-                    RowCount = 1,
-                    ColCount = 1,
                     Row = 1,
                     Col = 0,
                     RowSpan = 1,
-                    ColSpan = 3
+                    ColSpan = 3,
+                    Data = new Dictionary<string, object>
+                    {
+                        ["price"] = product.Price.ToString(),
+                        ["amount"] = product.Amount.ToString()
+                    }
                 });
+
         OrderingPage.SetValue("price", product.Price.ToString());
         OrderingPage.SetValue("amount", product.Amount.ToString());
     }
+
 
     private void ClearChildComponents()
     {

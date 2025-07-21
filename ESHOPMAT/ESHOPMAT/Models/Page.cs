@@ -325,59 +325,37 @@ namespace ESHOPMAT.Models
 
         }
 
-         
+
         private void InitializeComponentData(PageSettings settings)
         {
-
-            // Use namespaced keys
+            // Always set type
             SetValue("type", settings.Type.ToString());
-            //if (!settings.IsRoot)
-            //{
-            //    SetValue("parent",Parent.Name);
-            //}
 
-            switch (Type)
-            {
-                case "Container":
-                    SetValue("columns", settings.ColCount.ToString());
-                    SetValue("rows", settings.RowCount.ToString());
-                    SetValue("rowHeight", settings.RowHeight.ToString());
-                    break;
-                case "Counter":
-                    SetValue("count", settings.Count.ToString());
-                    break;
-                case "TextBlock":
-                    SetValue("text", settings.Text.ToString());
-                    SetValue("title", settings.Title.ToString());
-                    break;
-                case "Image":
-                    SetValue("image", settings.ImageUrl.ToString());
-                    break;
-                //case "PruductPage":
-                //    SetValue("Product:Id", settings.ProductId.ToString());
-                    //break;
-                case "OrderingBar":
-                    SetValue("Id", "0", "Product");
-                    break;
-                case "ProductImage":
-                    SetValue("Image","0", "Product");
-                    break;
-                case "ProductTitleDescription":
-                    SetValue("Title", "PLeceholder", "Product");
-                    //SetValue("Product:Title", settings.Product.Name.ToString(), "");
-                    //SetValue("Product:Description", settings.Product.Description.ToString(), "");
-                    SetValue("Description", "PLeceholder", "Product");
-                    break;
-                case "ProductList":
-                    SetValue("ProductList", ConvertProductListToString(settings.ProductList));
-                    break;
-            }
-
-            if (IsRoot)
-            {
+            // Optional: add root indicator
+            if (settings.IsRoot)
                 SetValue("isRoot", "true");
+
+            // Load from ComponentRegistry
+            var definition = ComponentRegistry.Get(settings.Type.ToString());
+            if (definition == null)
+                return;
+
+            var properties = settings.GetFilteredProperties();
+
+            foreach (var kvp in properties)
+            {
+                // Optional namespacing for specific components like "Product"
+                if (settings.Type is ComponentType.ProductImage or ComponentType.ProductTitleDescription or ComponentType.OrderingBar)
+                {
+                    SetValue(kvp.Key, kvp.Value?.ToString() ?? "", "Product");
+                }
+                else
+                {
+                    SetValue(kvp.Key, kvp.Value?.ToString() ?? "");
+                }
             }
         }
+
         public string ConvertProductListToString(List<Product> products)
         {
             // Select the product IDs and join them into a comma-separated string
@@ -485,78 +463,44 @@ namespace ESHOPMAT.Models
     public class PageSettings
     {
         public string Name { get; set; }
-        public ComponentType Type { get; set; } = ComponentType.Unknown;
+        public ComponentType Type { get; set; }
         public Guid ShareId { get; set; }
         public Guid DevShareId { get; set; }
+
+        public bool IsRoot { get; set; }
 
         public int Row { get; set; } = 1;
         public int Col { get; set; } = 1;
         public int RowSpan { get; set; } = 1;
         public int ColSpan { get; set; } = 1;
-        public int RowHeight { get; set; } = 16;
-        public bool IsRoot { get; set; } = false;
-        public int RowCount { get; set; } = 1;
-        public int ColCount { get; set; } = 1;
-        public int Count { get; set; } = 1;
-        public string Title { get; set; } = "";
-        public string Text { get; set; } = "";
-        public string ImageUrl { get; set; } = "";
-        public Product Product { get; set; } = null;
-        public List<Product> ProductList { get; set; } = new List<Product>();
+
+        // Raw data bucket for component-specific properties
+        public Dictionary<string, object> Data { get; set; } = new();
 
         public Dictionary<string, object> GetFilteredProperties()
         {
-            var filteredData = new Dictionary<string, object>();
+            var definition = ComponentRegistry.Get(Type.ToString());
+            if (definition == null)
+                return new Dictionary<string, object>();
 
-            switch (Type)
+            var result = new Dictionary<string, object>();
+
+            foreach (var kv in definition.DefaultProperties)
             {
-                case ComponentType.Container:
-                    filteredData["RowCount"] = RowCount;
-                    filteredData["ColCount"] = ColCount;
-                    filteredData["RowHeight"] = RowHeight;
-                    break;
-                case ComponentType.Counter:
-                    filteredData["Count"] = Count;
-                    break;
-                case ComponentType.TextBlock:
-                    filteredData["Text"] = Text;
-                    filteredData["Title"] = Title;
-                    break;
-                case ComponentType.Image:
-                    filteredData["ImageUrl"] = ImageUrl;
-                    break;
-                case ComponentType.OrderingBar:
-                    filteredData["Id"] = "0"; // Placeholder for ordering bar
-                    break;
-                case ComponentType.ProductImage:
-                    filteredData["Image"] = "0"; // Placeholder for product image
-                    break;
-                case ComponentType.ProductTitleDescription:
-                    filteredData["Title"] = "Placeholder";
-                    filteredData["Description"] = "Placeholder";
-                    break;
-                case ComponentType.ProductList:
-                    filteredData["ProductList"] = ProductList.Select(p => p.Id).ToList();
-                    break;
-                default:
-                    break;
+                if (Data.ContainsKey(kv.Key))
+                    result[kv.Key] = Data[kv.Key];
+                else
+                    result[kv.Key] = kv.Value;
             }
 
-            return filteredData;
+            return result;
+        }
+
+        public Type GetComponentType()
+        {
+            return ComponentRegistry.Get(Type.ToString())?.BlazorComponentType;
         }
     }
 
-    public enum ComponentType
-    {
-        Container,
-        Counter,
-        TextBlock,
-        Image,
-        OrderingBar,
-        ProductImage,
-        ProductTitleDescription,
-        ProductList,
-        Unknown
-    }
 
 }

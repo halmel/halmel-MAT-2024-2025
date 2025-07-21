@@ -61,45 +61,74 @@ else
 
     private PageContent CreateDefaultPageTemplate(string templateName, AppDbContext context)
     {
-        var page = new PageContent(new PageSettings
+        // Root container
+        var rootSettings = new PageSettings
             {
                 Name = templateName,
                 Type = ComponentType.Container,
-                RowCount = 16,
-                ColCount = 16,
-                IsRoot = true
-            }, context);
+                    IsRoot = true,
+                Data = new Dictionary<string, object>
+                {
+                    ["columns"] = 16,
+                    ["rows"] = 16,
+                    ["rowHeight"] = 16
+                }
+            };
 
-        page.AddChild(new PageSettings
+        var page = new PageContent(rootSettings, context);
+
+        // Product Title & Description
+        var titleDescription = new PageSettings
             {
                 Name = "TitleDescription",
                 Type = ComponentType.ProductTitleDescription,
-                Row = 1,
+                    Row = 1,
                 Col = 1,
                 RowSpan = 4,
-                ColSpan = 4
-            });
+                ColSpan = 4,
+                Data = new Dictionary<string, object>
+                {
+                    ["Title"] = "Placeholder",
+                    ["Description"] = "Placeholder"
+                }
+            };
 
-        page.AddChild(new PageSettings
+        // Product Image
+        var productImage = new PageSettings
             {
                 Name = "ProductImage",
                 Type = ComponentType.ProductImage,
-                Row = 1,
+                    Row = 1,
                 Col = 5,
                 RowSpan = 4,
-                ColSpan = 4
-            });
+                ColSpan = 4,
+                Data = new Dictionary<string, object>
+                {
+                    ["Image"] = "0"
+                }
+            };
 
-        page.AddChild(new PageSettings
+        // Ordering Bar
+        var orderingBar = new PageSettings
             {
                 Name = "OrderingBar",
                 Type = ComponentType.OrderingBar,
-                Row = 5,
+                    Row = 5,
                 Col = 1,
                 RowSpan = 2,
-                ColSpan = 8
-            });
+                ColSpan = 8,
+                Data = new Dictionary<string, object>
+                {
+                    ["Id"] = "0"
+                }
+            };
+
+        // Add children to root
+        page.AddChild(titleDescription);
+        page.AddChild(productImage);
+        page.AddChild(orderingBar);
 
         return page;
     }
+
 }
