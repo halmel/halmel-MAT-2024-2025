@@ -21,25 +21,23 @@ else
         var springStart = new DateTimeOffset(2025, 3, 1, 0, 0, 0, TimeSpan.Zero);
         var summerEnd = new DateTimeOffset(2025, 7, 31, 0, 0, 0, TimeSpan.Zero);
 
-        var testChick1 = new Product
+        var testChick1 = new ChickProduct
             {
                 Id = 1,
                 Name = "White Leghorn",
                 Description = "Fast growing egg layer",
                 Price = 500,
-                StockHandlingType = ProductStockHandlingType.Chick,
                 CategoryType = ProductCategoryType.Chick,
                 Template = new ProductTemplate { Id = 1, Name = "chick-default" } // optional mock
             };
         testChick1.GenerateSeasonalHatchingEvents(springStart.AddDays(7), summerEnd.AddDays(-21), 75);
 
-        var testChick2 = new Product
+        var testChick2 = new ChickProduct
             {
                 Id = 2,
                 Name = "Rhode Island Red",
                 Description = "Dual purpose bird",
                 Price = 600,
-                StockHandlingType = ProductStockHandlingType.Chick,
                 CategoryType = ProductCategoryType.Chick,
                 Template = new ProductTemplate { Id = 2, Name = "chick-default" } // optional mock
             };

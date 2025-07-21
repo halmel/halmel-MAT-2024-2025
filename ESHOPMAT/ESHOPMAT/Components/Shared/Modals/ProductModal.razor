@@ -17,19 +17,47 @@
                             <label for="name" class="form-label">Name</label>
                             <InputText id="name" class="form-control" @bind-Value="CurrentProduct.Name" />
                         </div>
+
+
+                        <div class="mb-3">
+                            <label for="stockHandlingType" class="form-label">Stock Handling Type</label>
+
+                            @if (IsEditing)
+                            {
+                                <InputText class="form-control" value="@CurrentProduct.StockHandlingType.ToString()" disabled />
+                            }
+                            else
+                            {
+                                <InputSelect id="stockHandlingType" class="form-control" @bind-Value="SelectedStockHandlingType" @onchange="OnStockHandlingTypeChange">
+                                    <option value="@ProductStockHandlingType.Unknown">-- Select stock type --</option>
+                                    @foreach (var type in Enum.GetValues<ProductStockHandlingType>().Where(t => t != ProductStockHandlingType.Unknown))
+                                    {
+                                        <option value="@type">@type</option>
+                                    }
+                                </InputSelect>
+                            }
+                        </div>
+
+
                         <div class="mb-3">
                             <label for="description" class="form-label">Description</label>
                             <InputTextArea id="description" class="form-control" @bind-Value="CurrentProduct.Description" rows="3" />
                         </div>
-                        <div class="mb-3">
-                            <label for="stockHandlingType" class="form-label">Stock Handling Type</label>
-                            <InputSelect id="stockHandlingType" class="form-control" @bind-Value="CurrentProduct.StockHandlingType">
-                                @foreach (var type in Enum.GetValues<ProductStockHandlingType>())
-                                {
-                                    <option value="@type">@type</option>
-                                }
-                            </InputSelect>
-                        </div>
+                        @if (SelectedStockHandlingType != ProductStockHandlingType.Chick)
+                        {
+                            <div class="mb-3">
+                                <label for="amount" class="form-label">Amount</label>
+                                <InputNumber id="amount" class="form-control" @bind-Value="((StandardProduct)CurrentProduct).Amount" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Stock Management</label>
+                                <input class="form-control" value="🛠️ Coming soon: Hatching event manager" disabled />
+                            </div>
+                        }
+
 
                         <div class="mb-3">
                             <label for="categoryType" class="form-label">Category</label>
@@ -169,7 +197,7 @@
     [Parameter] public Product? ProductToEdit { get; set; }
 
     private bool IsEditing => ProductToEdit != null;
-    private Product CurrentProduct = new();
+    private Product CurrentProduct = null;
     private List<UploadedFile> Images = new();
     private List<int> ImageOrder = new();
 
@@ -179,31 +207,52 @@
     private int? SelectedTemplateId;
     private bool IsAddingNewTemplate = false;
     private string NewTemplateName = string.Empty;
+    private ProductStockHandlingType SelectedStockHandlingType = ProductStockHandlingType.Unknown;
 
 
     protected override async Task OnInitializedAsync(){
         await using var productDbContext = await DbContextFactory.CreateDbContextAsync();
         AvailableTemplates = productDbContext.ProductTemplates.ToList();
     }
-
     protected override async Task OnParametersSetAsync()
     {
         if (ProductToEdit != null)
         {
-            CurrentProduct = new Product
-                {
-                    Id = ProductToEdit.Id,
-                    Name = ProductToEdit.Name,
-                    Description = ProductToEdit.Description,
-                    StockHandlingType = ProductToEdit.StockHandlingType,
-                    CategoryType = ProductToEdit.CategoryType,
-                    ProductTemplateId = ProductToEdit.ProductTemplateId,
-                    Price = ProductToEdit.Price,
-                    Amount = ProductToEdit.Amount,
-                    ImageIds = ProductToEdit.ImageIds
-                };
+            switch (ProductToEdit.StockHandlingType)
+            {
+                case ProductStockHandlingType.Chick:
+                    CurrentProduct = new ChickProduct
+                        {
+                            Id = ProductToEdit.Id,
+                            Name = ProductToEdit.Name,
+                            Description = ProductToEdit.Description,
+                            CategoryType = ProductToEdit.CategoryType,
+                            ProductTemplateId = ProductToEdit.ProductTemplateId,
+                            Price = ProductToEdit.Price,
+                            HatchDate = ProductToEdit.HatchDate,
+                            ImageIds = ProductToEdit.ImageIds,
+                        };
+                    break;
 
-            SelectedTemplateId = ProductToEdit.ProductTemplateId; // ✅ <-- This sets the selected template
+                case ProductStockHandlingType.Default:
+                    CurrentProduct = new StandardProduct
+                        {
+                            Id = ProductToEdit.Id,
+                            Name = ProductToEdit.Name,
+                            Description = ProductToEdit.Description,
+                            CategoryType = ProductToEdit.CategoryType,
+                            ProductTemplateId = ProductToEdit.ProductTemplateId,
+                            Price = ProductToEdit.Price,
+                            ImageIds = ProductToEdit.ImageIds,
+                            Amount = ProductToEdit.Amount,
+                        };
+                    break;
+
+                default:
+                    throw new InvalidOperationException("Unsupported stock handling type.");
+            }
+
+            SelectedTemplateId = ProductToEdit.ProductTemplateId;
 
             // Load existing images
             Images.Clear();
@@ -229,19 +278,38 @@
         }
         else
         {
-            CurrentProduct = new Product
+            SelectedStockHandlingType = ProductStockHandlingType.Unknown;
+            CurrentProduct = new StandardProduct
                 {
                     ImageIds = Array.Empty<int>(),
-                    StockHandlingType = ProductStockHandlingType.Unknown,
-                    CategoryType = ProductCategoryType.Unknown,
+                    CategoryType = ProductCategoryType.Unknown
                 };
 
-            SelectedTemplateId = null; // Reset on new product
+            SelectedTemplateId = null;
             Images.Clear();
             ImageOrder.Clear();
         }
+
     }
 
+    private void OnStockHandlingTypeChange(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<ProductStockHandlingType>(e.Value?.ToString(), out var selectedType))
+        {
+            SelectedStockHandlingType = selectedType;
+
+            CurrentProduct = selectedType switch
+            {
+                ProductStockHandlingType.Chick => new ChickProduct(),
+                ProductStockHandlingType.Default => new StandardProduct(),
+                _ => new StandardProduct()
+            };
+
+            // Reset default values
+            CurrentProduct.ImageIds = Array.Empty<int>();
+            CurrentProduct.CategoryType = ProductCategoryType.Unknown;
+        }
+    }
 
     private string GetImageUrl(int? imageId)
     {
@@ -334,13 +402,11 @@
             StateHasChanged();
         }
     }
-
     private async Task HandleValidSubmit()
     {
         await using var dbContext = DbContextFactory.CreateDbContext();
         var imageIds = new List<int>();
 
-        // Process new images
         foreach (var orderIndex in ImageOrder)
         {
             var image = Images[orderIndex];
@@ -362,21 +428,20 @@
         }
 
         CurrentProduct.ImageIds = imageIds.ToArray();
-        await using var productDbContext = await DbContextFactory.CreateDbContextAsync();
 
         if (IsAddingNewTemplate && !string.IsNullOrWhiteSpace(NewTemplateName))
         {
             var newTemplate = new ProductTemplate { Name = NewTemplateName };
-            productDbContext.ProductTemplates.Add(newTemplate);
+            dbContext.ProductTemplates.Add(newTemplate);
             try
             {
-                await productDbContext.SaveChangesAsync(); // ✅ Use correct DbContext
+                await dbContext.SaveChangesAsync();
                 CurrentProduct.ProductTemplateId = newTemplate.Id;
             }
-            catch (Exception x)
+            catch (Exception ex)
             {
-                Console.WriteLine($"Template creation failed: {x.Message}");
-                return; // Don't proceed with product save if template creation failed
+                Console.WriteLine($"Template creation failed: {ex.Message}");
+                return;
             }
         }
         else
@@ -384,8 +449,7 @@
             CurrentProduct.ProductTemplateId = SelectedTemplateId;
         }
 
-
-
+        // Save logic via callback
         if (OnSave.HasDelegate)
         {
             await OnSave.InvokeAsync(CurrentProduct);
@@ -393,6 +457,7 @@
 
         await Close();
     }
+
 
     private async Task Close()
     {

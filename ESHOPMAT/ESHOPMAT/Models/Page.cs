@@ -501,7 +501,7 @@ namespace ESHOPMAT.Models
         public string Title { get; set; } = "";
         public string Text { get; set; } = "";
         public string ImageUrl { get; set; } = "";
-        public Product Product { get; set; } = new Product();
+        public Product Product { get; set; } = null;
         public List<Product> ProductList { get; set; } = new List<Product>();
 
         public Dictionary<string, object> GetFilteredProperties()

@@ -19,9 +19,14 @@ namespace ESHOPMAT.Models
         Item,
         Unknown
     }
+    public enum StockStatus
+    {
+        Green,
+        Yellow,
+        Red
+    }
 
-
-    public class Product
+    public abstract class Product
     {
         [Key]
         public int Id { get; set; }
@@ -32,105 +37,68 @@ namespace ESHOPMAT.Models
         [Required]
         public string Description { get; set; } = string.Empty;
 
+        public int[] ImageIds { get; set; } = Array.Empty<int>();
+
         [Required]
         public int Price { get; set; }
 
-
-        // Link to the ProductTemplate used by this product
         public int? ProductTemplateId { get; set; }
 
         [ForeignKey(nameof(ProductTemplateId))]
         public ProductTemplate? Template { get; set; }
 
+        [Required]
+        public ProductCategoryType CategoryType { get; set; } = ProductCategoryType.Unknown;
 
+        [Required]
+        public ProductStockHandlingType StockHandlingType { get; protected set; } = ProductStockHandlingType.Unknown;
 
+        // HatchDate can be used by both types if needed
+        public DateTimeOffset? HatchDate { get; set; }
 
-        // Backing field for Amount
-        private int? _amount =0;
+        private int? _amount = 0;
 
-        /// <summary>
-        /// Only accessible if ProductType is not Chick.
-        /// Throws if accessed on a Chick product.
-        /// </summary>
         [NotMapped]
         public int Amount
         {
-            get
-            {
-                if (StockHandlingType == ProductStockHandlingType.Chick)
-                    throw new InvalidOperationException("Chick-type products do not use Amount. Use HatchingEvents instead.");
-
-                if (!_amount.HasValue)
-                    throw new InvalidOperationException("Amount is required for non-Chick products.");
-
-                return _amount.Value;
-            }
-            set
-            {
-                if (StockHandlingType == ProductStockHandlingType.Chick)
-                    throw new InvalidOperationException("Cannot set Amount for Chick-type products. Use HatchingEvents instead.");
-
-                _amount = value;
-            }
+            get => _amount ?? throw new InvalidOperationException("Amount is required.");
+            set => _amount = value;
         }
 
-        // This field is actually mapped to the DB
         [Column("Amount")]
         public int? AmountStorage
         {
             get => _amount;
             set => _amount = value;
         }
+    }
+    public class StandardProduct : Product
+    {
+        public StandardProduct()
+        {
+            StockHandlingType = ProductStockHandlingType.Default;
+        }
 
 
+    }
+    public class ChickProduct : Product
+    {
 
+        public ChickProduct()
+        {
+            StockHandlingType = ProductStockHandlingType.Chick;
+        }
 
-        [Required]
-        public ProductStockHandlingType StockHandlingType { get; set; } = ProductStockHandlingType.Unknown;
-
-        [Required]
-        public ProductCategoryType CategoryType { get; set; } = ProductCategoryType.Unknown;
-
-
-        // If needed for general products; for chicks, we rely on HatchingEvents
-        public DateTimeOffset? HatchDate { get; set; }
-
-        public int[] ImageIds { get; set; } = Array.Empty<int>();
-        public int[] PageIds { get; set; } = Array.Empty<int>();
-
-
-
-
-
-
-        /// <summary>
-        /// Only used if Type == ProductType.Chick.
-        /// Holds all the week‐by‐week hatching events for the season.
-        /// </summary>
         public List<HatchingEvent> HatchingEvents { get; set; } = new List<HatchingEvent>();
 
-        // === Helper Methods for Chick‐Type Products ===
-
-        /// <summary>
-        /// Automatically generates a weekly series of hatching events between <paramref name="startDate"/> and <paramref name="endDate"/>,
-        /// inclusive. All weeks share the same <paramref name="predictedQuantityPerWeek"/>.
-        /// Only valid if Type == Chick. Season must lie between early spring (March 1) and mid summer (July 31).
-        /// </summary>
-        /// <param name="startDate">The first hatch date (first week). Must be on or after March 1.</param>
-        /// <param name="endDate">The final hatch date. Must be on or before July 31, and >= startDate.</param>
-        /// <param name="predictedQuantityPerWeek">Predicted number of chicks for each week.</param>
-        /// <exception cref="InvalidOperationException">Thrown if product is not a Chick or dates are out of season bounds.</exception>
-        public void GenerateSeasonalHatchingEvents(
-            DateTimeOffset startDate,
-            DateTimeOffset endDate,
-            int predictedQuantityPerWeek)
+        public void GenerateSeasonalHatchingEvents(DateTimeOffset startDate, DateTimeOffset endDate, int predictedQuantityPerWeek)
         {
-            if (StockHandlingType != ProductStockHandlingType.Chick)
-                throw new InvalidOperationException("Only chick products can have seasonal hatching.");
+            if (startDate.Month < 3 || endDate.Month > 7 || endDate < startDate)
+                throw new InvalidOperationException("Season must be between March 1 and July 31.");
 
             var generationId = Guid.NewGuid();
-
             var cursor = startDate;
+
             while (cursor <= endDate)
             {
                 HatchingEvents.Add(new HatchingEvent
@@ -141,57 +109,32 @@ namespace ESHOPMAT.Models
                     ActualStock = null,
                     GenerationId = generationId
                 });
-
                 cursor = cursor.AddDays(7);
             }
         }
 
-
-        /// <summary>
-        /// Deletes all future hatching events in the same generation as the provided event.
-        /// You can choose to include or exclude the provided event itself.
-        /// </summary>
-        /// <param name="startEvent">The hatching event to use as a starting point.</param>
-        /// <param name="includeStartEvent">Whether to include the given event itself in the deletion.</param>
         public void DeleteEventsFrom(HatchingEvent startEvent, bool includeStartEvent)
         {
-            if (StockHandlingType != ProductStockHandlingType.Chick)
-                throw new InvalidOperationException();
-
             var cutoff = startEvent.HatchDate;
             var generationId = startEvent.GenerationId;
 
             HatchingEvents.RemoveAll(evt =>
                 evt.GenerationId == generationId &&
                 evt.HatchDate >= (includeStartEvent ? cutoff : cutoff.AddDays(1)) &&
-                !evt.HasActualStock); // skip events with manually confirmed stock
+                !evt.HasActualStock);
         }
 
-
-        /// <summary>
-        /// Moves all future hatching events in the same generation to a different day of the week,
-        /// starting from the given event. Manual-stock events are preserved.
-        /// </summary>
-        /// <param name="startEvent">The hatching event to use as a starting point.</param>
-        /// <param name="newDay">The new day of the week to move events to.</param>
-        /// <param name="includeStartEvent">Whether to include the provided event itself in the move.</param>
         public void MoveEventsFromToNewDay(HatchingEvent startEvent, DayOfWeek newDay, bool includeStartEvent)
         {
-            if (StockHandlingType != ProductStockHandlingType.Chick)
-                throw new InvalidOperationException();
-
             var cutoff = startEvent.HatchDate;
             var generationId = startEvent.GenerationId;
 
             foreach (var evt in HatchingEvents)
             {
-                if (evt.GenerationId != generationId)
-                    continue;
-
-                if (evt.HatchDate < cutoff || (!includeStartEvent && evt.HatchDate == cutoff))
-                    continue;
-
-                if (evt.HasActualStock)
+                if (evt.GenerationId != generationId ||
+                    evt.HatchDate < cutoff ||
+                    (!includeStartEvent && evt.HatchDate == cutoff) ||
+                    evt.HasActualStock)
                     continue;
 
                 int offset = ((int)newDay - (int)evt.HatchDate.DayOfWeek + 7) % 7;
@@ -199,46 +142,19 @@ namespace ESHOPMAT.Models
             }
         }
 
-
-        /// <summary>
-        /// Returns all hatching events for this product (empty list if none or not a Chick).
-        /// </summary>
-        public IReadOnlyList<HatchingEvent> GetAllHatchingEvents()
-        {
-            return HatchingEvents.AsReadOnly();
-        }
-
-        /// <summary>
-        /// Adds a single hatching event (one week) manually, specifying date and predicted quantity.
-        /// </summary>
-        /// <param name="hatchDate">Specific date in the week.</param>
-        /// <param name="predictedQuantity">Forecasted quantity.</param>
         public void AddHatchingEvent(DateTimeOffset hatchDate, int predictedQuantity, Guid generationId)
         {
-            if (StockHandlingType != ProductStockHandlingType.Chick)
-                throw new InvalidOperationException();
-
             HatchingEvents.Add(new HatchingEvent
             {
                 ProductId = this.Id,
                 HatchDate = hatchDate,
                 PredictedStock = predictedQuantity,
-                ActualStock = null,
                 GenerationId = generationId
             });
         }
 
-
-        /// <summary>
-        /// Edits an existing HatchingEvent by copying over all its fields (except the Id/ProductId remain the same).
-        /// </summary>
-        /// <param name="updatedEvent">A HatchingEvent object containing its own Id (must match one in the list), and new values for HatchDate, PredictedStock, and optionally ActualStock.</param>
-        /// <exception cref="InvalidOperationException">Thrown if product is not a Chick or the event is not found.</exception>
         public void EditHatchingEvent(HatchingEvent updatedEvent)
         {
-            if (StockHandlingType != ProductStockHandlingType.Chick)
-                throw new InvalidOperationException("Cannot edit hatching events on non‐Chick products.");
-
             var existing = HatchingEvents.Find(e => e.Id == updatedEvent.Id);
             if (existing == null)
                 throw new InvalidOperationException($"No hatching event found with ID = {updatedEvent.Id}.");
@@ -247,14 +163,13 @@ namespace ESHOPMAT.Models
             existing.PredictedStock = updatedEvent.PredictedStock;
             existing.ActualStock = updatedEvent.ActualStock;
         }
+
+        public IReadOnlyList<HatchingEvent> GetAllHatchingEvents()
+        {
+            return HatchingEvents.AsReadOnly();
+        }
     }
 
-    public enum StockStatus
-    {
-        Green,
-        Yellow,
-        Red
-    }
 
     public class HatchingEvent
     {
@@ -270,7 +185,7 @@ namespace ESHOPMAT.Models
         /// <summary>
         /// Navigation property to the parent Product
         /// </summary>
-        public Product? Product { get; set; }
+        public ChickProduct? Product { get; set; }
 
         /// <summary>
         /// The date (any day of that week) on which the chicks hatch.

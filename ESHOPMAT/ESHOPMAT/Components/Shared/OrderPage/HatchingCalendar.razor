@@ -17,7 +17,7 @@
         // Filter chick-type products and extract hatching events
         var chickProducts = Products.Where(p => p.StockHandlingType == ProductStockHandlingType.Chick);
 
-        foreach (var product in chickProducts)
+        foreach (ChickProduct product in chickProducts)
         {
             foreach (var hatchingEvent in product.HatchingEvents)
             {

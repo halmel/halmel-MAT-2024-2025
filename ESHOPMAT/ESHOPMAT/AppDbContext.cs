@@ -80,6 +80,10 @@ namespace ESHOPMAT
             modelBuilder.Entity<Product>()
     .Navigation(p => p.Template)
     .AutoInclude();
+            modelBuilder.Entity<Product>()
+    .HasDiscriminator<ProductStockHandlingType>("StockHandlingType")
+    .HasValue<StandardProduct>(ProductStockHandlingType.Default)
+    .HasValue<ChickProduct>(ProductStockHandlingType.Chick);
 
 
 
