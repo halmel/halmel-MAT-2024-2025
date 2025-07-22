@@ -47,7 +47,7 @@ namespace ESHOPMAT.Models
 
         // Specifies the type of component (e.g., "Container", "Counter")
         [Required]
-        public string Type { get; set; }
+        public ComponentType Type { get; set; }
 
         // Unique name for the component instance
         [Required]
@@ -261,7 +261,7 @@ namespace ESHOPMAT.Models
             }
 
             Name = settings.Name;
-            Type = settings.Type.ToString();
+            Type = settings.Type;
             IsRoot = settings.IsRoot;
             InitializeComponentData(settings);
         }

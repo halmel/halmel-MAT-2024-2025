@@ -18,7 +18,7 @@ style="@WrapperStyle; @GetPositionStyle()"
         <div class="resize-handle bottom-right" @onmousedown:preventDefault @onmousedown="(e) => StartResize(e, ResizeDirection.BottomRight)"></div>
     }
 
-    <DynamicComponent Type="ComponentRegistry.Get(Page.Type).BlazorComponentType" Parameters="GetParameters()" />
+    <DynamicComponent Type="ComponentRegistry.Get(Page.Type.ToString()).BlazorComponentType" Parameters="GetParameters()" />
 </div>
 
 <style>
@@ -427,7 +427,7 @@ style="@WrapperStyle; @GetPositionStyle()"
     private Dictionary<string, object> GetParameters()
     {
         var parameters = new Dictionary<string, object>();
-        var def = ComponentRegistry.Get(Page.Type);
+        var def = ComponentRegistry.Get(Page.Type.ToString());
 
         if (def?.ParameterBindings == null)
             return parameters;
